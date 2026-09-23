@@ -5,6 +5,7 @@ import type { InvestigationNumber, StoredInvestigation } from '../../api/types';
 import { rowsLabel } from '../../lib/format';
 import { Banner, Button, Ltr } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
+import { CopyButton } from '../investigation/CopyButton';
 import { DistributionDialog } from '../investigation/DistributionDialog';
 
 interface Props {
@@ -39,10 +40,12 @@ export function SuccessStep({ created, previewNumber, navigation }: Props) {
       <div className="success-location">
         <Icon name="cloud" />
         <div>
-          <span className="success-location-label">נשמר ב-SharePoint (סימולציה)</span>
-          <Ltr className="url">{created.location}</Ltr>
+          <span className="success-location-label">נוצר ב-SharePoint כטופס לעריכה (סימולציה)</span>
+          <Ltr className="url">{created.url}</Ltr>
         </div>
+        <CopyButton value={created.url} label="העתקה" />
       </div>
+      <p className="success-hint">מעכשיו התחקיר מנוהל ב-SharePoint: שם משלימים ועורכים אותו.</p>
 
       <div className="success-actions">
         <Button variant="primary" size="large" onClick={() => navigation.openInvestigation(created.number)}>

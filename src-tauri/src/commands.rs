@@ -4,22 +4,14 @@
 //! a serialisable result or an [`AppError`]. Every command must also be listed
 //! in `build.rs` and granted in `capabilities/main-window.json`.
 
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+use tauri::State;
 
-use serde::Serialize;
-use tauri::{AppHandle, State};
-use tauri_plugin_dialog::DialogExt;
-
-use crate::adapters::excel::{self, ImportError};
 use crate::domain::distribution::DistributionMessage;
 use crate::domain::investigation::{Investigation, InvestigationDraft, InvestigationSummary, StoredInvestigation};
 use crate::domain::investigation_number::InvestigationNumber;
-use crate::domain::operations_log::OperationsLog;
+use crate::domain::log_rows::{self, PastedRows};
 use crate::domain::system::{System, SystemInput};
 use crate::error::AppError;
-use crate::seed;
 use crate::services::distribution::{DistributionService, SentDistribution};
 use crate::services::investigations::InvestigationService;
 use crate::services::systems::SystemService;
@@ -29,14 +21,6 @@ use crate::state::{AppState, CurrentUser};
 const RECENT_LIMIT: usize = 8;
 
 type CommandResult<T> = Result<T, AppError>;
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportedLog {
-    import_id: u64,
-    #[serde(flatten)]
-    log: OperationsLog,
-}
 
 fn investigations(state: &AppState) -> CommandResult<InvestigationService<'_>> {
     let backend = state.backend()?;
@@ -74,53 +58,13 @@ pub async fn find_investigation(state: State<'_, AppState>, query: String) -> Co
     investigations(&state)?.find(&query, &Now::local())
 }
 
-// ---- Import -----------------------------------------------------------------
+// ---- Pasted rows -----------------------------------------------------------
 
-/// Shows the native file picker and imports the chosen workbook. The path is
-/// chosen by the user in the OS dialog; the webview never supplies a path.
+/// Parses rows the operator copied in Excel and pasted into the app. The text
+/// comes from the paste event only; the app has no clipboard permission.
 #[tauri::command]
-pub async fn import_workbook(app: AppHandle, state: State<'_, AppState>) -> CommandResult<Option<ImportedLog>> {
-    let picked =
-        app.dialog().file().set_title("בחירת יומן מבצעים").add_filter("Excel (xlsx)", &["xlsx"]).blocking_pick_file();
-    let Some(picked) = picked else {
-        return Ok(None);
-    };
-    let path = picked.into_path().map_err(|e| AppError::internal("file dialog", &e))?;
-    let bytes = read_workbook_file(&path)?;
-    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    import_bytes(&state, &bytes, &file_name).map(Some)
-}
-
-/// Imports the fictional workbook bundled with the application.
-#[tauri::command]
-pub async fn import_demo_workbook(state: State<'_, AppState>) -> CommandResult<ImportedLog> {
-    import_bytes(&state, seed::DEMO_WORKBOOK, seed::DEMO_WORKBOOK_NAME)
-}
-
-fn read_workbook_file(path: &Path) -> CommandResult<Vec<u8>> {
-    let is_xlsx = path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("xlsx"));
-    if !is_xlsx {
-        return Err(AppError::Import { code: "unsupported_file_type", missing_columns: Vec::new() });
-    }
-    let file = File::open(path).map_err(|e| AppError::Import {
-        code: if e.kind() == std::io::ErrorKind::PermissionDenied { "file_locked" } else { "file_unreadable" },
-        missing_columns: Vec::new(),
-    })?;
-    let mut bytes = Vec::new();
-    file.take(excel::MAX_FILE_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| AppError::Import { code: "file_unreadable", missing_columns: Vec::new() })?;
-    if bytes.len() as u64 > excel::MAX_FILE_BYTES {
-        return Err(ImportError::TooLarge.into());
-    }
-    Ok(bytes)
-}
-
-fn import_bytes(state: &AppState, bytes: &[u8], file_name: &str) -> CommandResult<ImportedLog> {
-    let highlight = state.backend()?.settings.highlight_color();
-    let log = excel::read_operations_log(bytes, file_name, &highlight)?;
-    let import_id = state.set_import(log.clone())?;
-    Ok(ImportedLog { import_id, log })
+pub async fn parse_pasted_rows(text: String) -> CommandResult<PastedRows> {
+    Ok(log_rows::parse_pasted_rows(&text)?)
 }
 
 // ---- Investigation wizard ---------------------------------------------------
@@ -140,8 +84,7 @@ pub async fn preview_investigation(
     state: State<'_, AppState>,
     draft: InvestigationDraft,
 ) -> CommandResult<Investigation> {
-    let service = investigations(&state)?;
-    state.with_import(draft.import_id, |log| service.preview(&draft, log, &Now::local()))
+    investigations(&state)?.preview(&draft, &Now::local())
 }
 
 #[tauri::command]
@@ -149,9 +92,7 @@ pub async fn create_investigation(
     state: State<'_, AppState>,
     draft: InvestigationDraft,
 ) -> CommandResult<StoredInvestigation> {
-    let service = investigations(&state)?;
-    let user = state.user.display_name.clone();
-    state.with_import(draft.import_id, |log| service.create(&draft, log, &Now::local(), &user))
+    investigations(&state)?.create(&draft, &Now::local(), &state.user.display_name)
 }
 
 // ---- Distribution -----------------------------------------------------------

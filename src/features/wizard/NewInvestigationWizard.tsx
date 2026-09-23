@@ -7,12 +7,12 @@ import { rowsLabel } from '../../lib/format';
 import { Banner, Button } from '../../ui/controls';
 import { InvestigationDocument } from '../investigation/InvestigationDocument';
 import { DetailsStep } from './DetailsStep';
-import { SelectRowsStep } from './SelectRowsStep';
+import { PasteRowsStep } from './PasteRowsStep';
 import { Stepper } from './Stepper';
 import { SuccessStep } from './SuccessStep';
 import { canContinueFromRows, initialWizardState, toDraft, wizardReducer } from './wizardState';
 
-type BusyAction = 'import' | 'demo' | 'preview' | 'create';
+type BusyAction = 'paste' | 'preview' | 'create';
 
 export function NewInvestigationWizard({ navigation }: { navigation: Navigation }) {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
@@ -36,26 +36,20 @@ export function NewInvestigationWizard({ navigation }: { navigation: Navigation 
     }
   }
 
-  const importWorkbook = () =>
-    run('import', async () => {
-      const log = await api.importWorkbook();
-      if (log) dispatch({ type: 'imported', log });
-    });
-
-  const importDemo = () =>
-    run('demo', async () => dispatch({ type: 'imported', log: await api.importDemoWorkbook() }));
+  const pasteText = (text: string) => {
+    if (busy) return;
+    void run('paste', async () => dispatch({ type: 'rowsPasted', pasted: await api.parsePastedRows(text) }));
+  };
 
   const requestPreview = () =>
-    run('preview', async () => {
-      const draft = toDraft(state);
-      if (draft) dispatch({ type: 'previewed', preview: await api.previewInvestigation(draft) });
-    });
+    run('preview', async () =>
+      dispatch({ type: 'previewed', preview: await api.previewInvestigation(toDraft(state)) }),
+    );
 
   const create = () =>
-    run('create', async () => {
-      const draft = toDraft(state);
-      if (draft) dispatch({ type: 'created', investigation: await api.createInvestigation(draft) });
-    });
+    run('create', async () =>
+      dispatch({ type: 'created', investigation: await api.createInvestigation(toDraft(state)) }),
+    );
 
   const goTo = (step: 'rows' | 'details') => {
     setError(null);
@@ -73,13 +67,7 @@ export function NewInvestigationWizard({ navigation }: { navigation: Navigation 
         {error && <Banner tone="error">{error}</Banner>}
 
         {state.step === 'rows' && (
-          <SelectRowsStep
-            state={state}
-            dispatch={dispatch}
-            onImport={importWorkbook}
-            onImportDemo={importDemo}
-            busy={busy === 'import' ? 'import' : busy === 'demo' ? 'demo' : null}
-          />
+          <PasteRowsStep state={state} dispatch={dispatch} onPasteText={pasteText} parsing={busy === 'paste'} />
         )}
         {state.step === 'details' && <DetailsStep state={state} dispatch={dispatch} onEditRows={() => goTo('rows')} />}
         {state.step === 'preview' && state.preview && (
@@ -102,9 +90,9 @@ export function NewInvestigationWizard({ navigation }: { navigation: Navigation 
             {state.step === 'rows' && (
               <>
                 <p className="action-bar-status" aria-live="polite">
-                  {state.log
-                    ? `נבחרו ${rowsLabel(state.selectedRowIds.size)} מתוך ${state.log.rows.length.toLocaleString('he-IL')}`
-                    : 'יש לייבא את יומן המבצעים כדי להתחיל'}
+                  {state.rows.length > 0
+                    ? `${rowsLabel(state.rows.length)} לתחקיר`
+                    : 'העתיקו שורות מ-Excel והדביקו אותן כדי להתחיל'}
                 </p>
                 <Button variant="subtle" onClick={navigation.goHome}>
                   ביטול
@@ -121,7 +109,7 @@ export function NewInvestigationWizard({ navigation }: { navigation: Navigation 
             )}
             {state.step === 'details' && (
               <>
-                <p className="action-bar-status">{rowsLabel(state.selectedRowIds.size)} נבחרו</p>
+                <p className="action-bar-status">{rowsLabel(state.rows.length)} לתחקיר</p>
                 <Button icon="back" onClick={() => goTo('rows')}>
                   חזרה
                 </Button>
@@ -132,7 +120,7 @@ export function NewInvestigationWizard({ navigation }: { navigation: Navigation 
             )}
             {state.step === 'preview' && (
               <>
-                <p className="action-bar-status">בדקו את התחקיר לפני היצירה.</p>
+                <p className="action-bar-status">כך ייווצר התחקיר ב-SharePoint.</p>
                 <Button icon="back" disabled={busy === 'create'} onClick={() => goTo('details')}>
                   חזרה לעריכה
                 </Button>

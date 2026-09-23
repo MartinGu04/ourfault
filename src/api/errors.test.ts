@@ -8,11 +8,7 @@ describe('toAppError', () => {
       kind: 'validation',
       errors: [{ field: 'systemId', code: 'required' }],
     });
-    expect(toAppError({ kind: 'import', code: 'missing_columns', missingColumns: ['time'] })).toEqual({
-      kind: 'import',
-      code: 'missing_columns',
-      missingColumns: ['time'],
-    });
+    expect(toAppError({ kind: 'paste', code: 'too_few_columns' })).toEqual({ kind: 'paste', code: 'too_few_columns' });
   });
 
   it('treats anything unexpected as an internal error', () => {
@@ -39,8 +35,6 @@ describe('messages', () => {
 
   it('never exposes raw error text', () => {
     expect(errorMessage(new Error('stack trace at C:\\app'))).not.toContain('C:\\');
-    expect(errorMessage(new ApiError({ kind: 'import', code: 'missing_columns', missingColumns: ['time'] }))).toContain(
-      'שעה (\u2066Time\u2069)',
-    );
+    expect(errorMessage(new ApiError({ kind: 'paste', code: 'too_few_columns' }))).toContain('ארבע עמודות');
   });
 });

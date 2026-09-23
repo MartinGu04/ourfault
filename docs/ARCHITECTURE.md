@@ -5,32 +5,36 @@ read before changing the code.
 
 ## Goals and non-goals
 
-OurFault turns rows of an operations-log workbook into an investigation
-report: select rows → choose a system → paste the preliminary-checks link →
-preview → create → distribute.
+OurFault creates investigations from operations-log rows:
 
-The PoC deliberately stays small:
+**Select rows in Excel → Copy → Paste into OurFault → Review → choose system → paste checks link → preview → create**
 
+- **Input is operator-controlled.** The operator selects and copies the rows
+  in Excel. OurFault never opens or reads a workbook, and never infers,
+  scores or auto-selects rows. It parses exactly what was pasted, deterministically,
+  and the operator reviews every row (edit, remove, paste more) before continuing.
+- **SharePoint is the destination and the source of truth.** An investigation
+  is created as an editable SharePoint list item (web form). Once it exists,
+  it is read and edited in SharePoint. OurFault keeps no copy of its own and
+  exports no PDF or DOCX.
 - One desktop process (Tauri 2). No web server, no background services.
-- Real, local Excel reading. SharePoint and e-mail are **mocks** that write
-  local JSON files and never touch the network.
-- All data is fictional.
+- SharePoint and e-mail are **mocks** that write local JSON files and never
+  touch the network. All data is fictional.
 
 ## Layers
 
 ```
-React UI (src/)                       Hebrew, RTL, presentation only
+React UI (src/)                       Hebrew, RTL, presentation and wizard state only
    │  typed calls in src/api/client.ts
    ▼  Tauri IPC (allow-listed commands)
 commands.rs                           input/output translation, auth checks
    ▼
 services/                             use cases: numbering, create, distribute, admin
    ▼
-domain/                               pure types and rules, no I/O
+domain/                               pure types and rules, no I/O (incl. paste parsing)
    ▲
 adapters/  (implement traits in adapters/mod.rs)
-   ├─ excel/                 real .xlsx reading (calamine + small fill reader)
-   ├─ mock_sharepoint.rs     SharePointAdapter   → local JSON
+   ├─ mock_sharepoint.rs     SharePointAdapter   → local JSON "list"
    ├─ mock_distribution.rs   DistributionAdapter → local "outbox" JSON
    └─ json_system_repository.rs  SystemRepository → local JSON
 state.rs                              composition root: picks the adapter implementations
@@ -43,6 +47,7 @@ formatting. There is exactly one source for each rule:
 
 | Rule | Location |
 | --- | --- |
+| Parsing pasted rows, validating reviewed rows | `domain/log_rows.rs` |
 | Number format, parsing, incrementing | `domain/investigation_number.rs` |
 | Link, e-mail and text validation | `domain/validation.rs` |
 | Building an investigation (active system, rows, link, template snapshot) | `domain/investigation.rs` |
@@ -50,9 +55,9 @@ formatting. There is exactly one source for each rule:
 | Number allocation with conflict retry | `services/investigations.rs` |
 | Distribution message content | `domain/distribution.rs` |
 
-Errors cross IPC only as stable codes (`{kind: "validation", errors: [{field, code}]}`).
-The UI maps codes to Hebrew text in `src/api/errors.ts`. Technical details stay
-in the log (`log_internal`).
+Errors cross IPC only as stable codes (`{kind: "validation", errors: [{field, code}]}`,
+`{kind: "paste", code}`). The UI maps codes to Hebrew text in
+`src/api/errors.ts`. Technical details stay in the log (`log_internal`).
 
 ## Project structure
 
@@ -60,8 +65,8 @@ in the log (`log_internal`).
 src/                     React + TypeScript (strict)
   api/                   IPC types, the typed client, error → Hebrew messages
   features/home          home screen: new investigation, search, recent list
-  features/wizard        the three-step creation wizard + success step
-  features/investigation shared document view, saved-investigation screen, distribution dialog
+  features/wizard        paste & review, details, preview, success
+  features/investigation shared investigation view, mock SharePoint item screen, distribution dialog
   features/admin         system administration
   ui/                    small shared controls (buttons, fields, dialog, icons)
   styles/                design tokens and CSS (logical properties → native RTL)
@@ -69,9 +74,51 @@ src-tauri/
   src/                   Rust application (see layers above)
   seed/                  fictional systems and past investigations (first-run seed)
   capabilities/          the single Tauri capability (explicit command allow-list)
-demo/                    fictional operations-log workbook
-scripts/                 generator for the demo workbook
+demo/                    fictional operations log to copy from + matching paste text
+scripts/                 generator for the demo files
 ```
+
+## Pasting rows
+
+When Excel copies a selection, it puts it on the clipboard as tab-separated
+text: CRLF between rows, and quotes around cells that contain line breaks.
+
+1. The UI listens for the `paste` event on the first wizard step. It uses the
+   clipboard's plain-text data only, and only when the operator pastes. The
+   app has **no clipboard permission** and never reads the clipboard on its own.
+2. The text goes to the `parse_pasted_rows` command. `domain/log_rows.rs`:
+   - splits rows and cells, honouring Excel's quoting for multi-line cells;
+   - drops completely blank lines;
+   - if the first line holds the column titles (English or Hebrew, any order),
+     uses it to locate the columns and skips it; otherwise takes columns **by
+     position** in the log's order: Time, From, To, Description. Further
+     columns (such as Event type) are not part of an investigation;
+   - rejects pastes that are empty, too large (1 MB), have fewer than four
+     columns, more than 500 rows, or cells over 2,000 characters;
+   - removes control characters. Values are otherwise kept exactly as pasted.
+3. The rows appear in a review table. The operator can remove rows, edit a
+   row, paste more rows (which are appended) or clear everything. Nothing is
+   reordered or filtered automatically.
+4. On preview and create, the reviewed rows are sent with the draft and
+   validated again in Rust (`validate_rows`).
+
+The Excel reading and fill-colour detection from the first iteration have
+been removed completely, along with the file dialog.
+
+## SharePoint model
+
+- Each system has a SharePoint destination: a site URL and a **list**.
+  Investigations are items in that list, and each item's form is where the
+  investigation is completed and edited.
+- `SharePointAdapter::create_investigation` creates the item and returns it
+  with its item id and URL (the mock returns
+  `{site}/Lists/{list}/DispForm.aspx?ID={id}`).
+- After creation, every OurFault view (recent list, search, the
+  "פתח תחקיר" screen, distribution) reads back from the adapter. In the PoC,
+  "פתח תחקיר" shows the mock item inside the app, since the URL is fictional.
+  With a real adapter it should open the item in SharePoint (see below).
+- The investigation carries a snapshot of the system name and template, so
+  later configuration changes never alter existing investigations.
 
 ## Persistence
 
@@ -81,16 +128,13 @@ Local JSON files in the per-user application data directory
 | File | Owner |
 | --- | --- |
 | `systems.json` | `JsonSystemRepository` |
-| `settings.json` | local settings (e.g. highlight colour) |
-| `mock-sharepoint/investigations.json` | `MockSharePoint` |
+| `mock-sharepoint/investigations.json` | `MockSharePoint` (stands in for the SharePoint list) |
 | `mock-mail/outbox.json` | `MockDistribution` |
 
 Writes are atomic (temp file + rename). A corrupt file is reported, never
 silently overwritten; the UI then shows a startup error instead of crashing.
-
-JSON was chosen over SQLite because the data is small, human-auditable and
-temporary: in production, systems and investigations move to shared storage
-behind the same traits.
+In production, system configuration moves to shared storage behind the same
+trait, and investigations live only in SharePoint.
 
 ## Investigation numbers
 
@@ -112,37 +156,17 @@ For real SharePoint this maps to a list column with *Enforce unique values*
 item. `services/investigations.rs` has a test that simulates another
 workstation winning the race.
 
-## Excel import
-
-- `calamine` reads **cached cell values**. Formulas are not evaluated, and
-  VBA/macros are never loaded. Only `.xlsx` is accepted.
-- The header row is located by name within the first 10 rows (English or
-  Hebrew titles: `Time/שעה`, `From/ממי`, `To/למי`, `Description/תוכן`,
-  optional `Event type/סוג אירוע`), so title rows above the header are fine.
-- Values become plain text: Excel times become `HH:MM`, control characters are
-  stripped, cells are capped at 2,000 characters, and the sheet at 5,000 rows.
-- **Background colour pre-selection**: calamine does not expose styles, so
-  `adapters/excel/fills.rs` (~200 lines) reads `workbook.xml`, `styles.xml` and
-  the first sheet via `zip` + `quick-xml`. Both crates are already calamine
-  dependencies, so nothing new enters the tree. Only explicit RGB solid fills
-  are matched (default `FFFF00`, configurable in `settings.json`).
-  Theme/indexed colours and conditional formatting are *not* resolved; such rows
-  are simply not pre-selected. Colour is only a starting point: the operator's
-  checkbox selection is what counts, and a failure here never fails the import.
-- The imported log stays in Rust memory. The wizard sends only row ids, so
-  investigations are built from parsed data, not from data echoed back by the webview.
-
 ## Security boundaries
 
 | Concern | Measure |
 | --- | --- |
-| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 14 OurFault commands (generated in `build.rs`). No core, fs, dialog, shell, http or opener permissions. `withGlobalTauri: false`. |
-| File access | The native file dialog is opened **by Rust**; the webview never supplies a path. Size limits apply before parsing, plus a zip-bomb guard on declared uncompressed size, and a per-part read cap in the fill reader. |
-| Content injection | Excel values and user input are rendered as React text only; there is no `dangerouslySetInnerHTML` and no `eval`. |
+| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 13 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
+| Input | Pasted text is untrusted. It is bounded in size, rows and cell length, and cleaned of control characters. Reviewed rows are re-validated in Rust on every preview and create. Admin configuration is validated in the domain layer. |
+| File system | The webview has no file access and never supplies paths; only Rust writes the app's own data files. |
+| Content injection | Pasted values and user input are rendered as React text only; there is no `dangerouslySetInnerHTML` and no `eval`. |
 | Network | No outbound requests anywhere. CSP `connect-src ipc: http://ipc.localhost`; verified in the real webview that `fetch` and `eval` are blocked. The navigation guard keeps the webview on the app origin. The preliminary-checks link is validated structurally (http/https, host, no credentials, ≤2048 chars), stored and shown with a *copy* button, never opened or fetched. |
 | Authorisation | Admin commands check the role in Rust (`require_admin`), not only in the UI. PoC role source: `OURFAULT_DEMO_ROLE`. |
 | Errors | Only codes reach the UI; paths and library errors go to the log. |
-| Trust boundary validation | Every command input (draft, system configuration, numbers) is validated in the domain layer. |
 | Supply chain | Small dependency set, pinned by `Cargo.lock` / `package-lock.json`. CI uses only GitHub-owned actions. |
 
 ## Decisions that deviate from the brief
@@ -150,11 +174,8 @@ workstation winning the race.
 - **Systems cannot be deleted.** Only deactivation exists. Investigations keep
   a snapshot of the system name and template, so history never dangles and
   later template edits never rewrite past investigations.
-- **Links are copied, not opened.** Opening a pasted URL from the app would be
-  the network access the brief rules out, and a phishing vector. Operators
-  copy the link into their browser.
-- **"פתח תחקיר" opens the in-app view** of the stored investigation. There is
-  no real SharePoint document to open in the PoC.
+- **The preliminary-checks link is copied, not opened.** Opening an arbitrary
+  pasted URL from the app would be the network access the brief rules out.
 - **Admin role from an environment variable.** A login screen would be
   throw-away work. The real source is the Windows identity plus a directory group.
 
@@ -162,22 +183,24 @@ workstation winning the race.
 
 1. Implement the trait (`SharePointAdapter`, `DistributionAdapter`,
    `SystemRepository`) in a new file under `src-tauri/src/adapters/`.
+   For SharePoint (e.g. via Microsoft Graph), `create_investigation` creates
+   the list item, maps the unique-number conflict to `NumberTaken`, and
+   returns the item's id and web URL.
 2. Construct it in `Backend::open` (`state.rs`).
 3. Keep secrets (Graph tokens, SMTP credentials) in Rust, loaded from the OS
    credential store or managed configuration, never in the frontend or source.
-4. If the adapter needs network access, perform it in Rust. The webview CSP
-   stays closed.
+4. Perform network access in Rust; the webview CSP stays closed.
+5. To open an item in SharePoint, add a narrow Rust command that opens a URL
+   **only if it belongs to a configured SharePoint site** (an allowlist taken
+   from system configuration). Do not add a general "open URL" capability.
 
-Nothing in `services/`, `commands.rs` or the UI needs to change.
+Nothing in `services/`, `commands.rs` or the UI needs to change for 1–4.
 
 ## Dependencies
 
 | Dependency | Why |
 | --- | --- |
 | `tauri`, `tauri-build` | Desktop shell and IPC |
-| `tauri-plugin-dialog` | Native "open file" dialog, used from Rust only |
-| `calamine` | Pure-Rust `.xlsx` value reader, no macro execution |
-| `zip`, `quick-xml` | Fill-colour detection (already transitive via calamine) |
 | `chrono` | Local date/time (Windows-safe local offset) |
 | `url` | URL parsing for validation (already transitive via Tauri) |
 | `serde`, `serde_json`, `thiserror` | Serialisation and error types |
@@ -185,15 +208,17 @@ Nothing in `services/`, `commands.rs` or the UI needs to change.
 | `@tauri-apps/api` | Typed `invoke` |
 | dev: `vite`, `@vitejs/plugin-react`, `typescript`, `vitest`, `@tauri-apps/cli` | Build and tests |
 
-No UI kit, router, state library or icon package: the app has four screens,
-and a discriminated union plus a reducer is clearer than a framework.
+No UI kit, router, state library, icon package, spreadsheet library or
+clipboard plugin. The app has four screens, and a discriminated union plus a
+reducer is clearer than a framework.
 
 ## Known limitations (PoC)
 
-- The investigation is stored as structured data; rendering a `.docx` from a
-  Word template belongs in a real SharePoint adapter.
 - Frontend types in `src/api/types.ts` mirror the Rust serde types by hand.
   If the API grows, generate them (e.g. `ts-rs`).
+- Columns are mapped by position unless a header row is pasted. If the real
+  log's column order differs, change `DEFAULT_COLUMNS` in `domain/log_rows.rs`,
+  or make it part of the configuration.
 - Internal logging is `stderr` only; add `tauri-plugin-log` with a rolling file
   before production.
 - Light theme only.

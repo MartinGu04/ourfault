@@ -1,6 +1,6 @@
-// Renders an investigation as a document. Used for the preview before
-// creation and for viewing saved investigations, so both always match.
-// All values are rendered as text; nothing from the workbook is interpreted.
+// Renders the fields of an investigation as they are created in SharePoint.
+// Used for the preview before creation and for the (mock) SharePoint view
+// afterwards, so both always match. All values are rendered as plain text.
 
 import type { Investigation } from '../../api/types';
 import { formatDate } from '../../lib/format';
@@ -40,12 +40,6 @@ export function InvestigationDocument({ investigation, provisionalNumber = false
         <div>
           <dt>מערכת</dt>
           <dd>{investigation.system.name}</dd>
-        </div>
-        <div className="document-meta-wide">
-          <dt>מקור הנתונים</dt>
-          <dd>
-            <Ltr>{investigation.sourceFileName}</Ltr>
-          </dd>
         </div>
         <div className="document-meta-wide">
           <dt>קישור לבדיקות מקדימות</dt>
@@ -94,7 +88,7 @@ export function InvestigationDocument({ investigation, provisionalNumber = false
       {template.sections.map((section) => (
         <section key={section} className="document-section">
           <h2>{section}</h2>
-          <p className="document-placeholder">יושלם על ידי המתחקר.</p>
+          <p className="document-placeholder">שדה לעריכה ב-SharePoint – יושלם על ידי המתחקר.</p>
         </section>
       ))}
     </article>

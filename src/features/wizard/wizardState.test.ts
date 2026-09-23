@@ -1,60 +1,56 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ImportedLog, OperationsLogRow } from '../../api/types';
+import type { LogRow, PastedRows } from '../../api/types';
 import { canContinueFromRows, initialWizardState, toDraft, wizardReducer, type WizardState } from './wizardState';
 
-function row(id: number, highlighted = false): OperationsLogRow {
-  return { id, time: '08:00', from: 'א', to: 'ב', description: `שורה ${id}`, eventType: 'שגרה', highlighted };
+function row(time: string, description: string): LogRow {
+  return { time, from: 'א', to: 'ב', description };
 }
 
-const log: ImportedLog = {
-  importId: 7,
-  sourceFileName: 'log.xlsx',
-  sheetName: 'יומן',
-  rows: [row(3), row(4, true), row(5), row(6, true)],
-  highlightDetectionAvailable: true,
-};
+const paste = (rows: LogRow[], headerSkipped = false): PastedRows => ({ rows, headerSkipped });
 
-const imported = (): WizardState => wizardReducer(initialWizardState, { type: 'imported', log });
+const pasted = (): WizardState =>
+  wizardReducer(initialWizardState, { type: 'rowsPasted', pasted: paste([row('08:00', 'a'), row('08:10', 'b')]) });
 
 describe('wizardReducer', () => {
-  it('pre-selects rows highlighted in Excel', () => {
-    expect([...imported().selectedRowIds]).toEqual([4, 6]);
+  it('adds pasted rows for review, appending on further pastes', () => {
+    let state = pasted();
+    expect(state.rows.map((r) => r.description)).toEqual(['a', 'b']);
+    state = wizardReducer(state, { type: 'rowsPasted', pasted: paste([row('09:00', 'c')], true) });
+    expect(state.rows.map((r) => r.description)).toEqual(['a', 'b', 'c']);
+    expect(new Set(state.rows.map((r) => r.key)).size).toBe(3);
+    expect(state.lastPaste).toEqual({ count: 1, headerSkipped: true });
   });
 
-  it('lets the operator override the pre-selection', () => {
-    let state = wizardReducer(imported(), { type: 'rowToggled', rowId: 4 });
-    state = wizardReducer(state, { type: 'rowToggled', rowId: 5 });
-    expect([...state.selectedRowIds].sort()).toEqual([5, 6]);
+  it('lets the operator edit and remove rows', () => {
+    let state = pasted();
+    const [first, second] = state.rows;
+    state = wizardReducer(state, { type: 'rowUpdated', key: first!.key, row: row('08:01', 'a (תוקן)') });
+    state = wizardReducer(state, { type: 'rowRemoved', key: second!.key });
+    expect(state.rows).toEqual([{ ...row('08:01', 'a (תוקן)'), key: first!.key }]);
 
-    state = wizardReducer(state, { type: 'allRowsSet', selected: false });
-    expect(state.selectedRowIds.size).toBe(0);
-    state = wizardReducer(state, { type: 'allRowsSet', selected: true });
-    expect(state.selectedRowIds.size).toBe(4);
+    state = wizardReducer(state, { type: 'rowsCleared' });
+    expect(state.rows).toEqual([]);
   });
 
-  it('only continues when at least one row is selected', () => {
+  it('only continues when there is at least one row', () => {
     expect(canContinueFromRows(initialWizardState)).toBe(false);
-    const none = wizardReducer(imported(), { type: 'allRowsSet', selected: false });
-    expect(wizardReducer(none, { type: 'stepRequested', step: 'details' }).step).toBe('rows');
-    expect(wizardReducer(imported(), { type: 'stepRequested', step: 'details' }).step).toBe('details');
+    expect(wizardReducer(initialWizardState, { type: 'stepRequested', step: 'details' }).step).toBe('rows');
+    expect(wizardReducer(pasted(), { type: 'stepRequested', step: 'details' }).step).toBe('details');
   });
 
-  it('builds the draft in workbook order', () => {
-    let state = wizardReducer(imported(), { type: 'rowToggled', rowId: 3 });
-    state = wizardReducer(state, { type: 'systemChanged', systemId: 'system-1' });
+  it('sends exactly the reviewed rows in their order', () => {
+    let state = wizardReducer(pasted(), { type: 'systemChanged', systemId: 'system-1' });
     state = wizardReducer(state, { type: 'urlChanged', url: 'https://checks.example.com/1' });
     expect(toDraft(state)).toEqual({
-      importId: 7,
-      selectedRowIds: [3, 4, 6],
       systemId: 'system-1',
       preliminaryCheckUrl: 'https://checks.example.com/1',
+      rows: [row('08:00', 'a'), row('08:10', 'b')],
     });
-    expect(toDraft(initialWizardState)).toBeNull();
   });
 
   it('clears a field error when that field changes', () => {
-    let state = wizardReducer(imported(), { type: 'stepRequested', step: 'details' });
+    let state = wizardReducer(pasted(), { type: 'stepRequested', step: 'details' });
     state = wizardReducer(state, {
       type: 'validationFailed',
       errors: [
@@ -66,13 +62,13 @@ describe('wizardReducer', () => {
     expect(state.fieldErrors).toEqual([{ field: 'systemId', code: 'required' }]);
   });
 
-  it('returns to row selection when the backend rejects the rows', () => {
-    let state = wizardReducer(imported(), { type: 'stepRequested', step: 'details' });
-    state = wizardReducer(state, { type: 'validationFailed', errors: [{ field: 'rows', code: 'import_expired' }] });
+  it('returns to the rows step when the backend rejects the rows', () => {
+    let state = wizardReducer(pasted(), { type: 'stepRequested', step: 'details' });
+    state = wizardReducer(state, { type: 'validationFailed', errors: [{ field: 'rows', code: 'empty_row' }] });
     expect(state.step).toBe('rows');
   });
 
-  it('invalidates the preview when the selection changes', () => {
+  it('invalidates the preview when the rows change', () => {
     const preview = {
       number: '056-2026',
       date: '2026-09-23',
@@ -80,11 +76,10 @@ describe('wizardReducer', () => {
       template: { name: 't', title: 't', sections: [] },
       preliminaryCheckUrl: 'https://checks.example.com/1',
       rows: [],
-      sourceFileName: 'log.xlsx',
     };
-    let state = wizardReducer(imported(), { type: 'previewed', preview });
+    let state = wizardReducer(pasted(), { type: 'previewed', preview });
     expect(state.step).toBe('preview');
-    state = wizardReducer(state, { type: 'rowToggled', rowId: 3 });
+    state = wizardReducer(state, { type: 'rowRemoved', key: state.rows[0]!.key });
     expect(state.preview).toBeNull();
   });
 });

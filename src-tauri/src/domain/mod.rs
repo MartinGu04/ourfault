@@ -4,6 +4,6 @@
 pub mod distribution;
 pub mod investigation;
 pub mod investigation_number;
-pub mod operations_log;
+pub mod log_rows;
 pub mod system;
 pub mod validation;

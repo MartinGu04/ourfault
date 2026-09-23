@@ -18,9 +18,10 @@ export interface InvestigationTemplate {
   sections: string[];
 }
 
+/** The SharePoint list whose items are a system's investigations. */
 export interface SharePointDestination {
   siteUrl: string;
-  library: string;
+  list: string;
 }
 
 export interface System {
@@ -37,37 +38,24 @@ export interface SystemInput extends Omit<System, 'id'> {
   id: string | null;
 }
 
-export interface OperationsLogRow {
-  /** Worksheet row number. */
-  id: number;
+/** One operations-log row as pasted and reviewed by the operator. */
+export interface LogRow {
   time: string;
   from: string;
   to: string;
   description: string;
-  eventType: string;
-  highlighted: boolean;
 }
 
-export interface ImportedLog {
-  importId: number;
-  sourceFileName: string;
-  sheetName: string;
-  rows: OperationsLogRow[];
-  highlightDetectionAvailable: boolean;
+export interface PastedRows {
+  rows: LogRow[];
+  /** The first pasted line was the column-title row and was skipped. */
+  headerSkipped: boolean;
 }
 
 export interface InvestigationDraft {
-  importId: number;
-  selectedRowIds: number[];
   systemId: string;
   preliminaryCheckUrl: string;
-}
-
-export interface InvestigationRow {
-  time: string;
-  from: string;
-  to: string;
-  description: string;
+  rows: LogRow[];
 }
 
 export interface Investigation {
@@ -76,15 +64,18 @@ export interface Investigation {
   system: { id: string; name: string };
   template: InvestigationTemplate;
   preliminaryCheckUrl: string;
-  rows: InvestigationRow[];
-  sourceFileName: string;
+  rows: LogRow[];
 }
 
+/** An investigation as it exists in SharePoint (the source of truth). */
 export interface StoredInvestigation extends Investigation {
   /** RFC 3339 local timestamp. */
   createdAt: string;
   createdBy: string;
-  location: string;
+  /** SharePoint list item id. */
+  itemId: number;
+  /** Address of the editable SharePoint item. */
+  url: string;
 }
 
 export interface InvestigationSummary {
@@ -118,7 +109,7 @@ export interface FieldError {
 
 export type AppError =
   | { kind: 'validation'; errors: FieldError[] }
-  | { kind: 'import'; code: string; missingColumns?: string[] }
+  | { kind: 'paste'; code: string }
   | { kind: 'notFound' }
   | { kind: 'forbidden' }
   | { kind: 'internal' };

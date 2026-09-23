@@ -21,7 +21,7 @@
     ],
     "sharepoint": {
       "siteUrl": "https://sharepoint.example.com/sites/alpha-ops",
-      "library": "Investigations"
+      "list": "Investigations"
     }
   },
   {
@@ -45,7 +45,7 @@
     ],
     "sharepoint": {
       "siteUrl": "https://sharepoint.example.com/sites/bravo-tech",
-      "library": "Investigations"
+      "list": "Investigations"
     }
   },
   {
@@ -66,7 +66,7 @@
     ],
     "sharepoint": {
       "siteUrl": "https://sharepoint.example.com/sites/charlie",
-      "library": "Investigations"
+      "list": "Investigations"
     }
   }
 ]

@@ -1,8 +1,10 @@
-"""Generates demo/operations-log-demo.xlsx - a fictional operations log.
+"""Generates the fictional demo data for OurFault.
 
-All content is invented. Rows that belong to the demo incident are filled in
-yellow (FFFF00), the colour OurFault pre-selects by default. One unrelated row
-uses a light green fill to show that only the configured colour counts.
+* demo/operations-log-demo.xlsx - an operations log to copy rows from. The rows
+  of the demo incident are filled yellow only to make the demo easy to follow;
+  OurFault ignores formatting and only uses what the operator pastes.
+* demo/demo-paste.txt - the 08:14-10:02 block exactly as Excel puts it on the
+  clipboard (tab-separated, CRLF). Used by the "paste example" button and tests.
 
 Usage (requires openpyxl):  python scripts/generate_demo_workbook.py
 """
@@ -13,7 +15,9 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-OUTPUT = Path(__file__).resolve().parent.parent / "demo" / "operations-log-demo.xlsx"
+DEMO_DIR = Path(__file__).resolve().parent.parent / "demo"
+OUTPUT = DEMO_DIR / "operations-log-demo.xlsx"
+PASTE_OUTPUT = DEMO_DIR / "demo-paste.txt"
 
 YELLOW = PatternFill("solid", fgColor="FFFF00")
 GREEN = PatternFill("solid", fgColor="E2EFDA")
@@ -73,6 +77,13 @@ def main() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(OUTPUT)
     print(f"wrote {OUTPUT}")
+
+    # Excel copies the displayed cell text, tab-separated, one CRLF-terminated line per row.
+    block = [row for row in ROWS if (8, 14) <= row[0] <= (10, 2)]
+    lines = [f"{hour:02}:{minute:02}\t{sender}\t{recipient}\t{description}\t{event_type}"
+             for (hour, minute), sender, recipient, description, event_type, _ in block]
+    PASTE_OUTPUT.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
+    print(f"wrote {PASTE_OUTPUT}")
 
 
 if __name__ == "__main__":

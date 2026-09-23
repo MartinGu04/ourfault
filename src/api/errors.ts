@@ -26,15 +26,8 @@ export function toAppError(value: unknown): AppError {
       return Array.isArray(value.errors) && value.errors.every(isFieldError)
         ? { kind: 'validation', errors: value.errors }
         : { kind: 'internal' };
-    case 'import': {
-      if (typeof value.code !== 'string') return { kind: 'internal' };
-      const missing = Array.isArray(value.missingColumns)
-        ? value.missingColumns.filter((c): c is string => typeof c === 'string')
-        : [];
-      return missing.length > 0
-        ? { kind: 'import', code: value.code, missingColumns: missing }
-        : { kind: 'import', code: value.code };
-    }
+    case 'paste':
+      return typeof value.code === 'string' ? { kind: 'paste', code: value.code } : { kind: 'internal' };
     case 'notFound':
     case 'forbidden':
     case 'internal':
@@ -44,25 +37,16 @@ export function toAppError(value: unknown): AppError {
   }
 }
 
-/** Isolates left-to-right text (URLs, file types) inside a Hebrew sentence. */
+/** Isolates left-to-right text (URLs, examples) inside a Hebrew sentence. */
 const ltr = (text: string) => `\u2066${text}\u2069`;
 
-const COLUMN_NAMES: Record<string, string> = {
-  time: `שעה (${ltr('Time')})`,
-  from: `ממי (${ltr('From')})`,
-  to: `למי (${ltr('To')})`,
-  description: `תוכן (${ltr('Description')})`,
-};
-
-const IMPORT_MESSAGES: Record<string, string> = {
-  file_too_large: `הקובץ גדול מדי. ניתן לייבא קבצים בגודל של עד ${ltr('10 MB')}.`,
-  unreadable_workbook: `לא ניתן לקרוא את הקובץ. ודאו שמדובר בקובץ Excel תקין בפורמט ${ltr('.xlsx')}.`,
-  unsupported_file_type: `ניתן לייבא קובצי Excel בפורמט ${ltr('.xlsx')} בלבד.`,
-  file_locked: 'אין הרשאה לקרוא את הקובץ או שהוא נעול. סגרו אותו ב-Excel ונסו שוב.',
-  file_unreadable: 'לא ניתן לפתוח את הקובץ.',
-  no_worksheet: 'לא נמצאו גיליונות בקובץ.',
-  no_rows: 'לא נמצאו שורות נתונים בגיליון הראשון.',
-  too_many_rows: 'הגיליון מכיל יותר מ-5,000 שורות. יש לפצל את היומן לקבצים קטנים יותר.',
+const PASTE_MESSAGES: Record<string, string> = {
+  empty_paste: 'לא נמצאו שורות בטקסט שהודבק. העתיקו שורות מיומן המבצעים ב-Excel ונסו שוב.',
+  paste_too_large: 'הטקסט שהודבק גדול מדי.',
+  too_few_columns:
+    'הטקסט שהודבק אינו נראה כמו שורות מיומן המבצעים. נדרשות לפחות ארבע עמודות: שעה, ממי, למי, תוכן. העתיקו שורות שלמות מ-Excel.',
+  too_many_rows: 'ניתן להדביק עד 500 שורות לתחקיר.',
+  cell_too_long: 'אחד התאים שהודבקו ארוך מ-2,000 תווים.',
 };
 
 const FIELD_MESSAGES: Record<string, string> = {
@@ -74,10 +58,10 @@ const FIELD_MESSAGES: Record<string, string> = {
   missing_host: 'בכתובת חסר שם שרת',
   credentials_not_allowed: 'אין לכלול שם משתמש או סיסמה בכתובת',
   system_inactive: 'המערכת שנבחרה אינה פעילה',
-  no_rows_selected: 'יש לבחור לפחות שורה אחת',
+  no_rows: 'יש להדביק לפחות שורה אחת מיומן המבצעים',
   too_many_rows: 'ניתן לכלול עד 500 שורות בתחקיר',
-  unknown_row: 'חלק מהשורות שנבחרו אינן קיימות עוד. יש לייבא את הקובץ מחדש.',
-  import_expired: 'הקובץ שיובא אינו זמין עוד. יש לייבא אותו מחדש.',
+  row_too_long: 'אחת השורות ארוכה מדי (עד 2,000 תווים בכל שדה)',
+  empty_row: 'אחת השורות ריקה. מלאו אותה או הסירו אותה.',
   invalid_email: 'אחת הכתובות אינה כתובת דוא״ל תקינה',
   invalid_characters: `השם מכיל תווים שאינם מותרים: ${ltr('/ \\ : * ? " < > | # %')}`,
   duplicate_name: 'כבר קיימת מערכת בשם זה',
@@ -110,13 +94,8 @@ export function errorMessage(error: unknown): string {
   switch (appError.kind) {
     case 'validation':
       return appError.errors[0] ? fieldMessage(appError.errors[0]) : 'חלק מהנתונים אינם תקינים.';
-    case 'import': {
-      if (appError.code === 'missing_columns') {
-        const names = (appError.missingColumns ?? []).map((c) => COLUMN_NAMES[c] ?? c).join(', ');
-        return `לא נמצאו בקובץ העמודות הנדרשות: ${names}. ודאו ששורת הכותרות נמצאת בראש הגיליון הראשון.`;
-      }
-      return IMPORT_MESSAGES[appError.code] ?? 'לא ניתן לייבא את הקובץ.';
-    }
+    case 'paste':
+      return PASTE_MESSAGES[appError.code] ?? 'לא ניתן לקרוא את הטקסט שהודבק.';
     case 'notFound':
       return 'הפריט המבוקש לא נמצא.';
     case 'forbidden':

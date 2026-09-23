@@ -37,12 +37,13 @@ pub struct InvestigationTemplate {
     pub sections: Vec<String>,
 }
 
-/// Where the SharePoint adapter stores investigations for a system.
+/// Where investigations of a system are created: a SharePoint list whose
+/// items are the editable investigation forms.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SharePointDestination {
     pub site_url: String,
-    pub library: String,
+    pub list: String,
 }
 
 /// Administrator input for creating or editing a system. Untrusted until
@@ -74,7 +75,7 @@ impl SystemInput {
         let template_name = check("templateName", required_text(&self.template.name, MAX_NAME_CHARS));
         let template_title = check("templateTitle", required_text(&self.template.title, MAX_TITLE_CHARS));
         let site_url = check("sharepointSiteUrl", validate_web_url(&self.sharepoint.site_url, UrlPolicy::HttpsOnly));
-        let library = check("sharepointLibrary", validate_library(&self.sharepoint.library));
+        let list = check("sharepointList", validate_list_name(&self.sharepoint.list));
         let sections = check_list(&mut errors, "templateSections", &self.template.sections, MAX_SECTIONS, |s| {
             required_text(s, MAX_NAME_CHARS)
         });
@@ -90,7 +91,7 @@ impl SystemInput {
             active: self.active,
             template: InvestigationTemplate { name: template_name, title: template_title, sections },
             distribution_list,
-            sharepoint: SharePointDestination { site_url, library },
+            sharepoint: SharePointDestination { site_url, list },
         })
     }
 }
@@ -123,12 +124,12 @@ fn check_list(
     valid
 }
 
-fn validate_library(value: &str) -> Result<String, &'static str> {
-    let library = required_text(value, MAX_NAME_CHARS)?;
-    if library.chars().any(|c| "/\\:*?\"<>|#%".contains(c)) {
+fn validate_list_name(value: &str) -> Result<String, &'static str> {
+    let list = required_text(value, MAX_NAME_CHARS)?;
+    if list.chars().any(|c| "/\\:*?\"<>|#%".contains(c)) {
         return Err("invalid_characters");
     }
-    Ok(library)
+    Ok(list)
 }
 
 #[cfg(test)]
@@ -148,7 +149,7 @@ pub(crate) mod tests {
             distribution_list: vec!["Delta-Ops@example.com".into(), "delta-ops@example.com".into(), "".into()],
             sharepoint: SharePointDestination {
                 site_url: "https://sharepoint.example.com/sites/delta".into(),
-                library: "תחקירים".into(),
+                list: "Investigations".into(),
             },
         }
     }
@@ -169,7 +170,7 @@ pub(crate) mod tests {
         input.template.sections = vec![];
         input.distribution_list = vec!["not-an-address".into()];
         input.sharepoint.site_url = "http://sharepoint.example.com".into();
-        input.sharepoint.library = "a/b".into();
+        input.sharepoint.list = "a/b".into();
 
         let errors = input.validate("x".into()).unwrap_err();
         let fields: Vec<(&str, &str)> = errors.iter().map(|e| (e.field.as_str(), e.code)).collect();
@@ -178,7 +179,7 @@ pub(crate) mod tests {
             vec![
                 ("name", "required"),
                 ("sharepointSiteUrl", "unsupported_scheme"),
-                ("sharepointLibrary", "invalid_characters"),
+                ("sharepointList", "invalid_characters"),
                 ("templateSections", "required"),
                 ("distributionList", "invalid_email"),
             ]

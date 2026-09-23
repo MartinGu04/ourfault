@@ -1,5 +1,6 @@
-//! Stand-in for SharePoint. Stores investigations in a local JSON file and
-//! makes no network requests.
+//! Stand-in for SharePoint. Simulates a list whose items are the editable
+//! investigation forms, stored in a local JSON file. Makes no network
+//! requests; the URLs it returns are fictional.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -27,9 +28,13 @@ impl MockSharePoint {
         self.records.lock().map_err(|_| AdapterError::Storage("mock SharePoint lock poisoned".into()))
     }
 
-    /// Fictional document URL inside the system's configured library.
-    fn location(destination: &SharePointDestination, number: InvestigationNumber) -> String {
-        format!("{}/{}/{}", destination.site_url.trim_end_matches('/'), destination.library, number)
+    /// Fictional address of the item's form in the system's configured list.
+    fn item_url(destination: &SharePointDestination, item_id: u32) -> String {
+        format!(
+            "{}/Lists/{}/DispForm.aspx?ID={item_id}",
+            destination.site_url.trim_end_matches('/'),
+            destination.list.replace(' ', "%20")
+        )
     }
 }
 
@@ -58,11 +63,13 @@ impl SharePointAdapter for MockSharePoint {
         if records.iter().any(|r| r.investigation.number == number) {
             return Err(AdapterError::NumberTaken(number));
         }
+        let item_id = records.iter().map(|r| r.item_id).max().unwrap_or(0) + 1;
         let stored = StoredInvestigation {
             investigation,
             created_at: created_at.to_owned(),
             created_by: created_by.to_owned(),
-            location: Self::location(destination, number),
+            item_id,
+            url: Self::item_url(destination, item_id),
         };
         records.push(stored.clone());
         if let Err(error) = json_file::save(&self.path, &*records) {
@@ -77,7 +84,7 @@ impl SharePointAdapter for MockSharePoint {
 mod tests {
     use super::*;
     use crate::adapters::json_file::tests::temp_dir;
-    use crate::domain::investigation::tests::{log, system};
+    use crate::domain::investigation::tests::{rows, system};
     use chrono::NaiveDate;
 
     fn investigation(sequence: u32, year: u16) -> Investigation {
@@ -85,8 +92,7 @@ mod tests {
             InvestigationNumber::new(sequence, year).unwrap(),
             NaiveDate::from_ymd_opt(i32::from(year), 1, 10).unwrap(),
             Some(&system("alpha", true)),
-            &log(),
-            &[2],
+            &rows(),
             "https://checks.example.com/runs/1",
         )
         .unwrap()
@@ -102,11 +108,13 @@ mod tests {
     }
 
     #[test]
-    fn stores_investigations_at_the_configured_destination() {
+    fn creates_list_items_in_the_configured_list() {
         let store = MockSharePoint::open(temp_dir("sp").join("sp.json"), Vec::new).unwrap();
         let stored = create(&store, 56, 2026).unwrap();
-        assert_eq!(stored.location, "https://sharepoint.example.com/sites/alpha/תחקירים/056-2026");
+        assert_eq!(stored.item_id, 1);
+        assert_eq!(stored.url, "https://sharepoint.example.com/sites/alpha/Lists/Investigations/DispForm.aspx?ID=1");
         assert_eq!(stored.created_by, "tester");
+        assert_eq!(create(&store, 57, 2026).unwrap().item_id, 2);
         let found = store.find_investigation(stored.investigation.number).unwrap();
         assert_eq!(found, Some(stored));
     }

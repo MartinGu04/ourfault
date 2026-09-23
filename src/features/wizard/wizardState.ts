@@ -1,14 +1,27 @@
 // State of the "new investigation" wizard as a pure reducer. Business rules
-// (validation, numbering) live in the backend; this only tracks UI progress.
+// (parsing, validation, numbering) live in the backend; this only tracks the
+// operator's rows and progress. Rows change only through explicit operator
+// actions: paste, edit, remove, clear.
 
-import type { FieldError, ImportedLog, Investigation, InvestigationDraft, StoredInvestigation } from '../../api/types';
+import type { FieldError, Investigation, InvestigationDraft, LogRow, PastedRows, StoredInvestigation } from '../../api/types';
 
 export type WizardStep = 'rows' | 'details' | 'preview' | 'done';
 
+/** A pasted row under review; `key` identifies it in the list. */
+export interface ReviewRow extends LogRow {
+  key: number;
+}
+
+export interface LastPaste {
+  count: number;
+  headerSkipped: boolean;
+}
+
 export interface WizardState {
   step: WizardStep;
-  log: ImportedLog | null;
-  selectedRowIds: ReadonlySet<number>;
+  rows: readonly ReviewRow[];
+  nextKey: number;
+  lastPaste: LastPaste | null;
   systemId: string;
   preliminaryCheckUrl: string;
   fieldErrors: readonly FieldError[];
@@ -17,9 +30,10 @@ export interface WizardState {
 }
 
 export type WizardAction =
-  | { type: 'imported'; log: ImportedLog }
-  | { type: 'rowToggled'; rowId: number }
-  | { type: 'allRowsSet'; selected: boolean }
+  | { type: 'rowsPasted'; pasted: PastedRows }
+  | { type: 'rowUpdated'; key: number; row: LogRow }
+  | { type: 'rowRemoved'; key: number }
+  | { type: 'rowsCleared' }
   | { type: 'systemChanged'; systemId: string }
   | { type: 'urlChanged'; url: string }
   | { type: 'stepRequested'; step: 'rows' | 'details' }
@@ -29,8 +43,9 @@ export type WizardAction =
 
 export const initialWizardState: WizardState = {
   step: 'rows',
-  log: null,
-  selectedRowIds: new Set(),
+  rows: [],
+  nextKey: 1,
+  lastPaste: null,
   systemId: '',
   preliminaryCheckUrl: '',
   fieldErrors: [],
@@ -40,31 +55,31 @@ export const initialWizardState: WizardState = {
 
 const withoutErrorsFor = (errors: readonly FieldError[], field: string) => errors.filter((e) => e.field !== field);
 
+/** Any change to the rows invalidates the preview and clears row errors. */
+function withRows(state: WizardState, rows: readonly ReviewRow[]): WizardState {
+  return { ...state, rows, preview: null, fieldErrors: withoutErrorsFor(state.fieldErrors, 'rows') };
+}
+
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
-    case 'imported':
-      // Rows marked in Excel are only a starting point for the selection.
+    case 'rowsPasted': {
+      // Pasting again appends, so rows can be collected from several places.
+      const added = action.pasted.rows.map((row, index) => ({ ...row, key: state.nextKey + index }));
       return {
-        ...state,
-        step: 'rows',
-        log: action.log,
-        selectedRowIds: new Set(action.log.rows.filter((row) => row.highlighted).map((row) => row.id)),
-        fieldErrors: withoutErrorsFor(state.fieldErrors, 'rows'),
-        preview: null,
+        ...withRows(state, [...state.rows, ...added]),
+        nextKey: state.nextKey + added.length,
+        lastPaste: { count: added.length, headerSkipped: action.pasted.headerSkipped },
       };
-    case 'rowToggled': {
-      const selected = new Set(state.selectedRowIds);
-      if (selected.has(action.rowId)) selected.delete(action.rowId);
-      else selected.add(action.rowId);
-      return { ...state, selectedRowIds: selected, fieldErrors: withoutErrorsFor(state.fieldErrors, 'rows'), preview: null };
     }
-    case 'allRowsSet':
-      return {
-        ...state,
-        selectedRowIds: new Set(action.selected ? (state.log?.rows ?? []).map((row) => row.id) : []),
-        fieldErrors: withoutErrorsFor(state.fieldErrors, 'rows'),
-        preview: null,
-      };
+    case 'rowUpdated':
+      return withRows(
+        state,
+        state.rows.map((row) => (row.key === action.key ? { ...action.row, key: row.key } : row)),
+      );
+    case 'rowRemoved':
+      return { ...withRows(state, state.rows.filter((row) => row.key !== action.key)), lastPaste: null };
+    case 'rowsCleared':
+      return { ...withRows(state, []), lastPaste: null };
     case 'systemChanged':
       return {
         ...state,
@@ -81,7 +96,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       };
     case 'stepRequested':
       if (action.step === 'details' && !canContinueFromRows(state)) return state;
-      return { ...state, step: action.step };
+      return { ...state, step: action.step, lastPaste: null };
     case 'validationFailed': {
       // Row problems can only be fixed on the first step.
       const step = action.errors.some((e) => e.field === 'rows') ? 'rows' : state.step;
@@ -95,18 +110,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
 }
 
 export function canContinueFromRows(state: WizardState): boolean {
-  return state.log !== null && state.selectedRowIds.size > 0;
+  return state.rows.length > 0;
 }
 
-/** The draft sent to the backend, or null before a workbook is imported. */
-export function toDraft(state: WizardState): InvestigationDraft | null {
-  if (!state.log) return null;
+/** The draft sent to the backend: exactly the rows the operator reviewed. */
+export function toDraft(state: WizardState): InvestigationDraft {
   return {
-    importId: state.log.importId,
-    // Keep workbook order; the backend enforces it too.
-    selectedRowIds: state.log.rows.filter((row) => state.selectedRowIds.has(row.id)).map((row) => row.id),
     systemId: state.systemId,
     preliminaryCheckUrl: state.preliminaryCheckUrl,
+    rows: state.rows.map(({ time, from, to, description }) => ({ time, from, to, description })),
   };
 }
 

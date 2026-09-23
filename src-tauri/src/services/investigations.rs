@@ -2,7 +2,6 @@ use super::Now;
 use crate::adapters::{AdapterError, SharePointAdapter, SystemRepository};
 use crate::domain::investigation::{Investigation, InvestigationDraft, InvestigationSummary, StoredInvestigation};
 use crate::domain::investigation_number::InvestigationNumber;
-use crate::domain::operations_log::OperationsLog;
 use crate::domain::system::System;
 use crate::error::AppError;
 
@@ -29,13 +28,8 @@ impl<'a> InvestigationService<'a> {
 
     /// Validates the draft and returns the investigation as it would be
     /// created now.
-    pub fn preview(
-        &self,
-        draft: &InvestigationDraft,
-        log: &OperationsLog,
-        now: &Now,
-    ) -> Result<Investigation, AppError> {
-        self.prepare(draft, log, now).map(|(investigation, _)| investigation)
+    pub fn preview(&self, draft: &InvestigationDraft, now: &Now) -> Result<Investigation, AppError> {
+        self.prepare(draft, now).map(|(investigation, _)| investigation)
     }
 
     /// Creates the investigation through the SharePoint adapter.
@@ -47,11 +41,10 @@ impl<'a> InvestigationService<'a> {
     pub fn create(
         &self,
         draft: &InvestigationDraft,
-        log: &OperationsLog,
         now: &Now,
         created_by: &str,
     ) -> Result<StoredInvestigation, AppError> {
-        let (investigation, system) = self.prepare(draft, log, now)?;
+        let (investigation, system) = self.prepare(draft, now)?;
         let mut candidate = investigation.number;
         for _ in 0..MAX_ALLOCATION_ATTEMPTS {
             let attempt = investigation.clone().with_number(candidate);
@@ -88,23 +81,12 @@ impl<'a> InvestigationService<'a> {
         self.sharepoint.find_investigation(number)?.ok_or(AppError::NotFound)
     }
 
-    fn prepare(
-        &self,
-        draft: &InvestigationDraft,
-        log: &OperationsLog,
-        now: &Now,
-    ) -> Result<(Investigation, System), AppError> {
+    fn prepare(&self, draft: &InvestigationDraft, now: &Now) -> Result<(Investigation, System), AppError> {
         let system = self.systems.get(&draft.system_id)?;
         let number = self.next_number(now)?;
-        let investigation = Investigation::build(
-            number,
-            now.date,
-            system.as_ref(),
-            log,
-            &draft.selected_row_ids,
-            &draft.preliminary_check_url,
-        )
-        .map_err(AppError::validation)?;
+        let investigation =
+            Investigation::build(number, now.date, system.as_ref(), &draft.rows, &draft.preliminary_check_url)
+                .map_err(AppError::validation)?;
         // `build` only succeeds with a system.
         let system = system.ok_or(AppError::Internal)?;
         Ok((investigation, system))
@@ -119,7 +101,7 @@ mod tests {
     use crate::adapters::json_file::tests::temp_dir;
     use crate::adapters::json_system_repository::JsonSystemRepository;
     use crate::adapters::mock_sharepoint::MockSharePoint;
-    use crate::domain::investigation::tests::{log, system};
+    use crate::domain::investigation::tests::{rows, system};
     use crate::domain::system::SharePointDestination;
     use crate::services::testing::now;
 
@@ -147,10 +129,9 @@ mod tests {
 
     fn draft(system_id: &str) -> InvestigationDraft {
         InvestigationDraft {
-            import_id: 1,
-            selected_row_ids: vec![2, 4],
             system_id: system_id.into(),
             preliminary_check_url: "https://checks.example.com/runs/77".into(),
+            rows: rows(),
         }
     }
 
@@ -158,7 +139,7 @@ mod tests {
     fn preview_proposes_the_next_number_without_reserving_it() {
         let fixture = Fixture::new();
         let service = fixture.service();
-        let preview = service.preview(&draft("alpha"), &log(), &now()).unwrap();
+        let preview = service.preview(&draft("alpha"), &now()).unwrap();
         assert_eq!(preview.number.to_string(), "001-2026");
         assert_eq!(preview.template.name, "תבנית alpha");
         assert!(fixture.sharepoint.list_investigations().unwrap().is_empty());
@@ -168,11 +149,11 @@ mod tests {
     fn creation_allocates_consecutive_numbers() {
         let fixture = Fixture::new();
         let service = fixture.service();
-        let first = service.create(&draft("alpha"), &log(), &now(), "operator").unwrap();
-        let second = service.create(&draft("bravo"), &log(), &now(), "operator").unwrap();
+        let first = service.create(&draft("alpha"), &now(), "operator").unwrap();
+        let second = service.create(&draft("bravo"), &now(), "operator").unwrap();
         assert_eq!(first.investigation.number.to_string(), "001-2026");
         assert_eq!(second.investigation.number.to_string(), "002-2026");
-        assert_eq!(second.location, "https://sharepoint.example.com/sites/bravo/תחקירים/002-2026");
+        assert_eq!(second.url, "https://sharepoint.example.com/sites/bravo/Lists/Investigations/DispForm.aspx?ID=2");
         assert_eq!(service.recent(10).unwrap()[0].number, second.investigation.number);
     }
 
@@ -180,9 +161,9 @@ mod tests {
     fn inactive_and_unknown_systems_are_rejected() {
         let fixture = Fixture::new();
         let service = fixture.service();
-        let error = service.create(&draft("retired"), &log(), &now(), "operator").unwrap_err();
+        let error = service.create(&draft("retired"), &now(), "operator").unwrap_err();
         assert!(matches!(error, AppError::Validation { ref errors } if errors[0].code == "system_inactive"));
-        let error = service.preview(&draft("missing"), &log(), &now()).unwrap_err();
+        let error = service.preview(&draft("missing"), &now()).unwrap_err();
         assert!(matches!(error, AppError::Validation { ref errors } if errors[0].field == "systemId"));
     }
 
@@ -227,8 +208,8 @@ mod tests {
         };
         let service = InvestigationService::new(&racing, &fixture.systems);
 
-        let preview = service.preview(&draft("alpha"), &log(), &now()).unwrap();
-        let created = service.create(&draft("alpha"), &log(), &now(), "operator").unwrap();
+        let preview = service.preview(&draft("alpha"), &now()).unwrap();
+        let created = service.create(&draft("alpha"), &now(), "operator").unwrap();
 
         assert_eq!(preview.number.to_string(), "001-2026");
         assert_eq!(created.investigation.number.to_string(), "002-2026");
@@ -240,7 +221,7 @@ mod tests {
     fn finds_investigations_by_lenient_number() {
         let fixture = Fixture::new();
         let service = fixture.service();
-        service.create(&draft("alpha"), &log(), &now(), "operator").unwrap();
+        service.create(&draft("alpha"), &now(), "operator").unwrap();
         assert_eq!(service.find("1", &now()).unwrap().investigation.number.to_string(), "001-2026");
         assert_eq!(service.find(" 001-2026 ", &now()).unwrap().created_by, "operator");
         assert!(matches!(service.find("2-2026", &now()), Err(AppError::NotFound)));

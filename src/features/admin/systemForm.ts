@@ -12,7 +12,7 @@ export interface SystemFormValues {
   /** One address per line (commas and semicolons also accepted). */
   distributionList: string;
   siteUrl: string;
-  library: string;
+  list: string;
 }
 
 export const emptySystemForm: SystemFormValues = {
@@ -22,7 +22,7 @@ export const emptySystemForm: SystemFormValues = {
   sections: ['רקע', 'השתלשלות האירוע', 'ממצאים', 'לקחים'].join('\n'),
   distributionList: '',
   siteUrl: 'https://sharepoint.example.com/sites/',
-  library: 'Investigations',
+  list: 'Investigations',
 };
 
 export function formFromSystem(system: System): SystemFormValues {
@@ -33,7 +33,7 @@ export function formFromSystem(system: System): SystemFormValues {
     sections: system.template.sections.join('\n'),
     distributionList: system.distributionList.join('\n'),
     siteUrl: system.sharepoint.siteUrl,
-    library: system.sharepoint.library,
+    list: system.sharepoint.list,
   };
 }
 
@@ -56,7 +56,7 @@ export function inputFromForm(id: string | null, active: boolean, values: System
     active,
     template: { name: values.templateName, title: values.templateTitle, sections: lines(values.sections) },
     distributionList: addresses(values.distributionList),
-    sharepoint: { siteUrl: values.siteUrl, library: values.library },
+    sharepoint: { siteUrl: values.siteUrl, list: values.list },
   };
 }
 
@@ -68,5 +68,5 @@ export const FORM_FIELD_FOR: Record<string, keyof SystemFormValues> = {
   templateSections: 'sections',
   distributionList: 'distributionList',
   sharepointSiteUrl: 'siteUrl',
-  sharepointLibrary: 'library',
+  sharepointList: 'list',
 };

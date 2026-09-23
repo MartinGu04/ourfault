@@ -3,8 +3,8 @@
 
 use serde::Serialize;
 
-use crate::adapters::excel::ImportError;
 use crate::adapters::AdapterError;
+use crate::domain::log_rows::PasteError;
 use crate::domain::validation::FieldError;
 
 #[derive(Debug, Serialize)]
@@ -14,11 +14,9 @@ pub enum AppError {
     Validation {
         errors: Vec<FieldError>,
     },
-    /// The workbook could not be imported.
-    Import {
+    /// The pasted text could not be turned into rows.
+    Paste {
         code: &'static str,
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        missing_columns: Vec<&'static str>,
     },
     NotFound,
     /// The current user may not perform this action.
@@ -49,15 +47,9 @@ impl From<AdapterError> for AppError {
     }
 }
 
-impl From<ImportError> for AppError {
-    fn from(error: ImportError) -> Self {
-        crate::log_internal("excel import", &error);
-        let code = error.code();
-        let missing_columns = match error {
-            ImportError::MissingColumns(columns) => columns,
-            _ => Vec::new(),
-        };
-        AppError::Import { code, missing_columns }
+impl From<PasteError> for AppError {
+    fn from(error: PasteError) -> Self {
+        AppError::Paste { code: error.code() }
     }
 }
 
@@ -71,11 +63,8 @@ mod tests {
         let storage = AppError::from(AdapterError::Storage("C:\\Users\\secret\\file.json: denied".into()));
         assert_eq!(serde_json::to_value(storage).unwrap(), json!({ "kind": "internal" }));
 
-        let import = AppError::from(ImportError::MissingColumns(vec!["time"]));
-        assert_eq!(
-            serde_json::to_value(import).unwrap(),
-            json!({ "kind": "import", "code": "missing_columns", "missingColumns": ["time"] })
-        );
+        let paste = AppError::from(PasteError::TooFewColumns);
+        assert_eq!(serde_json::to_value(paste).unwrap(), json!({ "kind": "paste", "code": "too_few_columns" }));
 
         let validation = AppError::field("preliminaryCheckUrl", "invalid_url");
         assert_eq!(

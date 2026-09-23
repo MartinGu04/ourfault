@@ -3,3 +3,5 @@
 *.png binary
 *.ico binary
 *.icns binary
+# Must keep Excel's CRLF clipboard line endings.
+demo/demo-paste.txt -text

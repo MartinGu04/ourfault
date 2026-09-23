@@ -24,8 +24,9 @@ pub struct DistributionReceipt {
 
 impl DistributionMessage {
     /// Composes the notification sent to a system's distribution list when an
-    /// investigation is published. The message links to the stored document
-    /// instead of embedding the operations-log rows.
+    /// investigation is created. The message links to the investigation in
+    /// SharePoint, which is where it is read and edited, instead of embedding
+    /// its content.
     pub fn for_investigation(stored: &StoredInvestigation, recipients: &[String]) -> Self {
         let inv = &stored.investigation;
         let subject = format!("{} {} – {}", inv.template.title, inv.number, inv.system.name);
@@ -40,7 +41,7 @@ impl DistributionMessage {
             format!("שורות מיומן המבצעים: {}", inv.rows.len()),
             format!("בדיקות מקדימות: {}", inv.preliminary_check_url),
             String::new(),
-            format!("התחקיר המלא שמור ב-SharePoint:\n{}", stored.location),
+            format!("לצפייה ולעריכת התחקיר ב-SharePoint:\n{}", stored.url),
             String::new(),
             "הודעה זו נשלחה מ-OurFault.".to_owned(),
         ]
@@ -52,7 +53,7 @@ impl DistributionMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::investigation::tests::{log, system};
+    use crate::domain::investigation::tests::{rows, system};
     use crate::domain::investigation::Investigation;
     use crate::domain::investigation_number::InvestigationNumber;
     use chrono::NaiveDate;
@@ -64,8 +65,7 @@ mod tests {
             InvestigationNumber::new(56, 2026).unwrap(),
             NaiveDate::from_ymd_opt(2026, 9, 23).unwrap(),
             Some(&alpha),
-            &log(),
-            &[2, 3],
+            &rows(),
             "https://checks.example.com/runs/1",
         )
         .unwrap();
@@ -73,7 +73,8 @@ mod tests {
             investigation,
             created_at: "2026-09-23T10:00:00+03:00".into(),
             created_by: "tester".into(),
-            location: "https://sharepoint.example.com/sites/alpha/תחקירים/056-2026".into(),
+            item_id: 57,
+            url: "https://sharepoint.example.com/sites/alpha/Lists/Investigations/DispForm.aspx?ID=57".into(),
         };
 
         let message = DistributionMessage::for_investigation(&stored, &alpha.distribution_list);
@@ -82,6 +83,6 @@ mod tests {
         assert_eq!(message.subject, "תחקיר אירוע 056-2026 – מערכת alpha");
         assert!(message.body.contains("תאריך: 23/09/2026"));
         assert!(message.body.contains("שורות מיומן המבצעים: 2"));
-        assert!(message.body.contains(&stored.location));
+        assert!(message.body.contains(&stored.url));
     }
 }

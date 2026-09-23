@@ -53,7 +53,7 @@ mod tests {
     use crate::adapters::json_system_repository::JsonSystemRepository;
     use crate::adapters::mock_distribution::MockDistribution;
     use crate::adapters::mock_sharepoint::MockSharePoint;
-    use crate::domain::investigation::tests::{log, system};
+    use crate::domain::investigation::tests::{rows, system};
     use crate::domain::investigation::InvestigationDraft;
     use crate::services::investigations::InvestigationService;
     use crate::services::testing::now;
@@ -65,12 +65,11 @@ mod tests {
         let systems = JsonSystemRepository::open(dir.join("systems.json"), || vec![system("alpha", true)]).unwrap();
         let mail = MockDistribution::open(dir.join("outbox.json")).unwrap();
         let draft = InvestigationDraft {
-            import_id: 1,
-            selected_row_ids: vec![2],
             system_id: "alpha".into(),
             preliminary_check_url: "https://checks.example.com/1".into(),
+            rows: rows(),
         };
-        let stored = InvestigationService::new(&sharepoint, &systems).create(&draft, &log(), &now(), "op").unwrap();
+        let stored = InvestigationService::new(&sharepoint, &systems).create(&draft, &now(), "op").unwrap();
         let service = DistributionService::new(&sharepoint, &systems, &mail);
 
         let sent = service.distribute(stored.investigation.number, &now()).unwrap();

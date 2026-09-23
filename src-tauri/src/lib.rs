@@ -33,7 +33,6 @@ pub(crate) fn log_internal(context: &str, error: &dyn std::fmt::Display) {
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .plugin(navigation_guard())
         .setup(|app| {
             let backend = data_dir(app.handle()).and_then(|dir| {
@@ -48,8 +47,7 @@ pub fn run() {
             commands::get_session,
             commands::list_recent_investigations,
             commands::find_investigation,
-            commands::import_workbook,
-            commands::import_demo_workbook,
+            commands::parse_pasted_rows,
             commands::list_active_systems,
             commands::peek_next_investigation_number,
             commands::preview_investigation,

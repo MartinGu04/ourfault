@@ -7,11 +7,11 @@ import { ApiError, toAppError } from './errors';
 import type {
   CurrentUser,
   DistributionMessage,
-  ImportedLog,
   Investigation,
   InvestigationDraft,
   InvestigationNumber,
   InvestigationSummary,
+  PastedRows,
   SentDistribution,
   StoredInvestigation,
   System,
@@ -31,9 +31,8 @@ export const api = {
   listRecentInvestigations: () => call<InvestigationSummary[]>('list_recent_investigations'),
   findInvestigation: (query: string) => call<StoredInvestigation>('find_investigation', { query }),
 
-  /** Opens the native file picker. Resolves to null when the user cancels. */
-  importWorkbook: () => call<ImportedLog | null>('import_workbook'),
-  importDemoWorkbook: () => call<ImportedLog>('import_demo_workbook'),
+  /** Parses text the operator pasted (rows copied from Excel). */
+  parsePastedRows: (text: string) => call<PastedRows>('parse_pasted_rows', { text }),
 
   listActiveSystems: () => call<System[]>('list_active_systems'),
   peekNextInvestigationNumber: () => call<InvestigationNumber>('peek_next_investigation_number'),

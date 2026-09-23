@@ -30,10 +30,10 @@
         "description": "התבקשה בדיקת רגישות החיישן."
       }
     ],
-    "sourceFileName": "operations-log-2025-12-18.xlsx",
     "createdAt": "2025-12-19T09:12:00+02:00",
     "createdBy": "אבי כהן (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/charlie/Investigations/117-2025"
+    "itemId": 40,
+    "url": "https://sharepoint.example.com/sites/charlie/Lists/Investigations/DispForm.aspx?ID=40"
   },
   {
     "number": "118-2025",
@@ -68,10 +68,10 @@
         "description": "הערוץ חזר לפעולה לאחר אתחול."
       }
     ],
-    "sourceFileName": "operations-log-2025-12-29.xlsx",
     "createdAt": "2025-12-30T08:40:00+02:00",
     "createdBy": "נועה לוי (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/alpha-ops/Investigations/118-2025"
+    "itemId": 41,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=41"
   },
   {
     "number": "051-2026",
@@ -112,10 +112,10 @@
         "description": "הוחלף ספק כוח. המערכת חזרה לפעולה."
       }
     ],
-    "sourceFileName": "operations-log-2026-08-27.xlsx",
     "createdAt": "2026-08-27T13:05:00+03:00",
     "createdBy": "אבי כהן (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/bravo-tech/Investigations/051-2026"
+    "itemId": 42,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=42"
   },
   {
     "number": "052-2026",
@@ -150,10 +150,10 @@
         "description": "דווח על עיכוב של כ-10 דקות."
       }
     ],
-    "sourceFileName": "operations-log-2026-09-02.xlsx",
     "createdAt": "2026-09-02T11:30:00+03:00",
     "createdBy": "נועה לוי (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/alpha-ops/Investigations/052-2026"
+    "itemId": 43,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=43"
   },
   {
     "number": "053-2026",
@@ -188,10 +188,10 @@
         "description": "הופעל מיזוג גיבוי. הטמפרטורה ירדה."
       }
     ],
-    "sourceFileName": "operations-log-2026-09-08.xlsx",
     "createdAt": "2026-09-09T08:15:00+03:00",
     "createdBy": "נועה לוי (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/bravo-tech/Investigations/053-2026"
+    "itemId": 44,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=44"
   },
   {
     "number": "054-2026",
@@ -232,10 +232,10 @@
         "description": "הוחלף כרטיס תצוגה. העמדה חזרה לפעולה."
       }
     ],
-    "sourceFileName": "operations-log-2026-09-15.xlsx",
     "createdAt": "2026-09-16T09:00:00+03:00",
     "createdBy": "אבי כהן (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/alpha-ops/Investigations/054-2026"
+    "itemId": 45,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=45"
   },
   {
     "number": "055-2026",
@@ -270,9 +270,9 @@
         "description": "התגלה כבל פגום. הוחלף במקום."
       }
     ],
-    "sourceFileName": "operations-log-2026-09-21.xlsx",
     "createdAt": "2026-09-21T15:20:00+03:00",
     "createdBy": "נועה לוי (הדגמה)",
-    "location": "https://sharepoint.example.com/sites/bravo-tech/Investigations/055-2026"
+    "itemId": 46,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=46"
   }
 ]

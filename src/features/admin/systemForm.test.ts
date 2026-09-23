@@ -9,7 +9,7 @@ const system: System = {
   active: false,
   template: { name: 'תבנית', title: 'תחקיר', sections: ['רקע', 'ממצאים'] },
   distributionList: ['a@example.com', 'b@example.com'],
-  sharepoint: { siteUrl: 'https://sharepoint.example.com/sites/alpha', library: 'Investigations' },
+  sharepoint: { siteUrl: 'https://sharepoint.example.com/sites/alpha', list: 'Investigations' },
 };
 
 describe('systemForm', () => {

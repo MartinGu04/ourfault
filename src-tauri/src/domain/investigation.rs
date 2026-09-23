@@ -2,22 +2,18 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use super::investigation_number::InvestigationNumber;
-use super::operations_log::OperationsLog;
+use super::log_rows::{validate_rows, LogRow};
 use super::system::{InvestigationTemplate, System};
 use super::validation::{validate_preliminary_check_url, FieldError};
 
-/// Upper bound on rows in a single investigation; keeps documents readable
-/// and bounds the size of what we store and distribute.
-pub const MAX_ROWS_PER_INVESTIGATION: usize = 500;
-
-/// What the operator chose in the wizard. Untrusted input from the webview.
+/// What the operator prepared in the wizard. Untrusted input from the webview:
+/// the rows are whatever the operator pasted and reviewed.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InvestigationDraft {
-    pub import_id: u64,
-    pub selected_row_ids: Vec<u32>,
     pub system_id: String,
     pub preliminary_check_url: String,
+    pub rows: Vec<LogRow>,
 }
 
 /// Snapshot of the system at creation time, so renaming a system later does
@@ -29,18 +25,7 @@ pub struct SystemRef {
     pub name: String,
 }
 
-/// A row as it appears in the investigation. The event type is intentionally
-/// not included.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InvestigationRow {
-    pub time: String,
-    pub from: String,
-    pub to: String,
-    pub description: String,
-}
-
-/// The content of an investigation document.
+/// The fields of an investigation as they are created in SharePoint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Investigation {
@@ -49,22 +34,20 @@ pub struct Investigation {
     pub system: SystemRef,
     pub template: InvestigationTemplate,
     pub preliminary_check_url: String,
-    pub rows: Vec<InvestigationRow>,
-    pub source_file_name: String,
+    pub rows: Vec<LogRow>,
 }
 
 impl Investigation {
-    /// Builds the investigation content from the operator's choices, applying
-    /// every business rule and reporting all violations at once. `system` is
-    /// `None` when no (known) system was chosen. `number` is the candidate
-    /// number; the final number may change at creation time (see
+    /// Builds the investigation from the operator's input, applying every
+    /// business rule and reporting all violations at once. `system` is `None`
+    /// when no (known) system was chosen. `number` is the candidate number;
+    /// the final number may change at creation time (see
     /// `services::investigations`).
     pub fn build(
         number: InvestigationNumber,
         date: NaiveDate,
         system: Option<&System>,
-        log: &OperationsLog,
-        selected_row_ids: &[u32],
+        rows: &[LogRow],
         preliminary_check_url: &str,
     ) -> Result<Self, Vec<FieldError>> {
         let mut errors = Vec::new();
@@ -80,32 +63,15 @@ impl Investigation {
             String::new()
         });
 
-        if selected_row_ids.is_empty() {
-            errors.push(FieldError::new("rows", "no_rows_selected"));
-        } else if selected_row_ids.len() > MAX_ROWS_PER_INVESTIGATION {
-            errors.push(FieldError::new("rows", "too_many_rows"));
-        } else if selected_row_ids.iter().any(|id| !log.rows.iter().any(|row| row.id == *id)) {
-            errors.push(FieldError::new("rows", "unknown_row"));
-        }
+        let rows = validate_rows(rows).unwrap_or_else(|code| {
+            errors.push(FieldError::new("rows", code));
+            Vec::new()
+        });
 
         let system = match system {
             Some(system) if errors.is_empty() => system,
             _ => return Err(errors),
         };
-
-        // Keep the workbook's chronological order regardless of click order,
-        // and ignore duplicate ids.
-        let rows = log
-            .rows
-            .iter()
-            .filter(|row| selected_row_ids.contains(&row.id))
-            .map(|row| InvestigationRow {
-                time: row.time.clone(),
-                from: row.from.clone(),
-                to: row.to.clone(),
-                description: row.description.clone(),
-            })
-            .collect();
 
         Ok(Self {
             number,
@@ -114,7 +80,6 @@ impl Investigation {
             template: system.template.clone(),
             preliminary_check_url: url,
             rows,
-            source_file_name: log.source_file_name.clone(),
         })
     }
 
@@ -133,8 +98,10 @@ pub struct StoredInvestigation {
     /// RFC 3339 local timestamp.
     pub created_at: String,
     pub created_by: String,
-    /// Where the adapter stored the document (a fictional URL for the mock).
-    pub location: String,
+    /// SharePoint list item id.
+    pub item_id: u32,
+    /// Address of the editable SharePoint item (fictional for the mock).
+    pub url: String,
 }
 
 /// Compact form for lists on the home screen.
@@ -157,7 +124,6 @@ impl From<&StoredInvestigation> for InvestigationSummary {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::domain::operations_log::OperationsLogRow;
     use crate::domain::system::SharePointDestination;
 
     pub(crate) fn system(id: &str, active: bool) -> System {
@@ -173,27 +139,19 @@ pub(crate) mod tests {
             distribution_list: vec![format!("{id}@example.com")],
             sharepoint: SharePointDestination {
                 site_url: format!("https://sharepoint.example.com/sites/{id}"),
-                library: "תחקירים".into(),
+                list: "Investigations".into(),
             },
         }
     }
 
-    pub(crate) fn log() -> OperationsLog {
-        let row = |id: u32, time: &str, description: &str| OperationsLogRow {
-            id,
+    pub(crate) fn rows() -> Vec<LogRow> {
+        let row = |time: &str, description: &str| LogRow {
             time: time.into(),
             from: "מוקד".into(),
             to: "עמדה 3".into(),
             description: description.into(),
-            event_type: "תקלה".into(),
-            highlighted: false,
         };
-        OperationsLog {
-            source_file_name: "log.xlsx".into(),
-            sheet_name: "Log".into(),
-            rows: vec![row(2, "08:00", "first"), row(3, "08:10", "second"), row(4, "08:20", "third")],
-            highlight_detection_available: true,
-        }
+        vec![row("08:00", "first"), row("08:10", "second")]
     }
 
     fn number() -> InvestigationNumber {
@@ -207,20 +165,20 @@ pub(crate) mod tests {
     const URL: &str = "https://checks.example.com/runs/1";
 
     #[test]
-    fn builds_from_selected_rows_in_log_order() {
-        let inv =
-            Investigation::build(number(), date(), Some(&system("alpha", true)), &log(), &[4, 2, 4], URL).unwrap();
+    fn builds_from_the_reviewed_rows_in_the_given_order() {
+        let mut reviewed = rows();
+        reviewed.reverse();
+        let inv = Investigation::build(number(), date(), Some(&system("alpha", true)), &reviewed, URL).unwrap();
         let descriptions: Vec<&str> = inv.rows.iter().map(|r| r.description.as_str()).collect();
-        assert_eq!(descriptions, vec!["first", "third"]);
+        assert_eq!(descriptions, vec!["second", "first"], "the operator's order is kept");
         assert_eq!(inv.number.to_string(), "056-2026");
         assert_eq!(inv.preliminary_check_url, URL);
-        assert_eq!(inv.source_file_name, "log.xlsx");
     }
 
     #[test]
     fn uses_the_template_of_the_selected_system() {
-        let alpha = Investigation::build(number(), date(), Some(&system("alpha", true)), &log(), &[2], URL).unwrap();
-        let bravo = Investigation::build(number(), date(), Some(&system("bravo", true)), &log(), &[2], URL).unwrap();
+        let alpha = Investigation::build(number(), date(), Some(&system("alpha", true)), &rows(), URL).unwrap();
+        let bravo = Investigation::build(number(), date(), Some(&system("bravo", true)), &rows(), URL).unwrap();
         assert_eq!(alpha.template.name, "תבנית alpha");
         assert_eq!(bravo.template.name, "תבנית bravo");
         assert_eq!(bravo.system, SystemRef { id: "bravo".into(), name: "מערכת bravo".into() });
@@ -228,37 +186,28 @@ pub(crate) mod tests {
 
     #[test]
     fn rejects_inactive_systems() {
-        let errors =
-            Investigation::build(number(), date(), Some(&system("old", false)), &log(), &[2], URL).unwrap_err();
+        let errors = Investigation::build(number(), date(), Some(&system("old", false)), &rows(), URL).unwrap_err();
         assert_eq!(errors, vec![FieldError::new("systemId", "system_inactive")]);
     }
 
     #[test]
     fn reports_all_missing_inputs_together() {
-        let errors = Investigation::build(number(), date(), None, &log(), &[], "ftp://x.example.com").unwrap_err();
+        let errors = Investigation::build(number(), date(), None, &[], "ftp://x.example.com").unwrap_err();
         assert_eq!(
             errors,
             vec![
                 FieldError::new("systemId", "required"),
                 FieldError::new("preliminaryCheckUrl", "unsupported_scheme"),
-                FieldError::new("rows", "no_rows_selected"),
+                FieldError::new("rows", "no_rows"),
             ]
         );
     }
 
     #[test]
-    fn rejects_rows_that_are_not_in_the_import() {
-        let errors =
-            Investigation::build(number(), date(), Some(&system("alpha", true)), &log(), &[2, 99], URL).unwrap_err();
-        assert_eq!(errors, vec![FieldError::new("rows", "unknown_row")]);
-    }
-
-    #[test]
-    fn serialises_without_event_type() {
-        let inv = Investigation::build(number(), date(), Some(&system("alpha", true)), &log(), &[2], URL).unwrap();
+    fn serialises_dates_and_numbers_as_strings() {
+        let inv = Investigation::build(number(), date(), Some(&system("alpha", true)), &rows(), URL).unwrap();
         let json = serde_json::to_value(&inv).unwrap();
         assert_eq!(json["date"], "2026-09-23");
         assert_eq!(json["number"], "056-2026");
-        assert!(json["rows"][0].get("eventType").is_none());
     }
 }

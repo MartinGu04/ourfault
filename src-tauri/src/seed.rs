@@ -7,9 +7,10 @@ use crate::domain::system::System;
 const SYSTEMS_JSON: &str = include_str!("../seed/systems.json");
 const INVESTIGATIONS_JSON: &str = include_str!("../seed/investigations.json");
 
-/// The bundled demo operations log (see `scripts/generate_demo_workbook.py`).
-pub const DEMO_WORKBOOK: &[u8] = include_bytes!("../../demo/operations-log-demo.xlsx");
-pub const DEMO_WORKBOOK_NAME: &str = "operations-log-demo.xlsx";
+/// Rows as Excel puts them on the clipboard (tab-separated, CRLF), copied
+/// from `demo/operations-log-demo.xlsx`. Used by tests.
+#[cfg(test)]
+pub const DEMO_PASTE: &str = include_str!("../../demo/demo-paste.txt");
 
 pub fn systems() -> Vec<System> {
     serde_json::from_str(SYSTEMS_JSON).expect("bundled seed/systems.json is valid")

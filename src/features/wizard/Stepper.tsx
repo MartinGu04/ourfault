@@ -2,7 +2,7 @@ import { Icon } from '../../ui/Icon';
 import type { WizardStep } from './wizardState';
 
 const STEPS: { key: Exclude<WizardStep, 'done'>; label: string }[] = [
-  { key: 'rows', label: 'בחירת שורות' },
+  { key: 'rows', label: 'הדבקת שורות' },
   { key: 'details', label: 'פרטי התחקיר' },
   { key: 'preview', label: 'תצוגה מקדימה' },
 ];

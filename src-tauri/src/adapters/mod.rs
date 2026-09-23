@@ -1,11 +1,10 @@
-//! Boundaries to everything outside the application: the operations-log
-//! workbook, SharePoint, the mail system and configuration storage.
+//! Boundaries to everything outside the application: SharePoint, the mail
+//! system and configuration storage.
 //!
 //! The rest of the application depends only on the traits in this file. The
 //! PoC ships local/mock implementations; real ones can replace them in
 //! `lib.rs` without touching the services or the UI.
 
-pub mod excel;
 pub(crate) mod json_file;
 pub mod json_system_repository;
 pub mod mock_distribution;
@@ -33,7 +32,10 @@ impl From<std::io::Error> for AdapterError {
     }
 }
 
-/// Stores and retrieves investigations. SharePoint in production.
+/// Creates and reads investigations. In production each investigation is an
+/// editable SharePoint list item (web form), and SharePoint is the source of
+/// truth once it exists: OurFault keeps no copy and always reads back from
+/// the adapter.
 pub trait SharePointAdapter: Send + Sync {
     fn list_investigations(&self) -> Result<Vec<StoredInvestigation>, AdapterError>;
 
@@ -42,7 +44,8 @@ pub trait SharePointAdapter: Send + Sync {
     /// Highest existing number in `year`, used to propose the next number.
     fn highest_number_in_year(&self, year: u16) -> Result<Option<InvestigationNumber>, AdapterError>;
 
-    /// Stores the investigation under `investigation.number`.
+    /// Creates the investigation item under `investigation.number` and returns
+    /// it with its SharePoint item id and URL.
     ///
     /// Implementations MUST make this an atomic create-if-absent and return
     /// [`AdapterError::NumberTaken`] if the number already exists (for real

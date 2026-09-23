@@ -140,10 +140,10 @@ export function SystemEditor({ system, notice, onSaved, onCancel, onActiveChange
         </section>
 
         <section className="editor-section" aria-labelledby="section-sharepoint">
-          <h3 id="section-sharepoint">יעד שמירה ב-SharePoint</h3>
+          <h3 id="section-sharepoint">רשימת התחקירים ב-SharePoint</h3>
           <div className="field-row">
             {text('siteUrl', 'כתובת האתר', { ltr: true, max: 2048 })}
-            {text('library', 'ספריית מסמכים', { max: 80 })}
+            {text('list', 'רשימה', { max: 80 })}
           </div>
         </section>
       </div>

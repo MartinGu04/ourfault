@@ -35,12 +35,15 @@ export function InvestigationScreen({ number, navigation }: { number: Investigat
         <>
           <div className="storage-info">
             <Icon name="cloud" />
-            <span className="storage-label">SharePoint (סימולציה)</span>
-            <Ltr className="url">{investigation.data.location}</Ltr>
-            <CopyButton value={investigation.data.location} label="העתקה" />
+            <span className="storage-label">פריט SharePoint (סימולציה)</span>
+            <Ltr className="url">{investigation.data.url}</Ltr>
+            <CopyButton value={investigation.data.url} label="העתקה" />
             <span className="storage-meta">
               נוצר {formatTimestamp(investigation.data.createdAt)} · {investigation.data.createdBy}
             </span>
+            <p className="storage-note">
+              הנתונים מוצגים כפי שהם שמורים ב-SharePoint, שבו התחקיר נערך ומנוהל. בסביבה האמיתית הכפתור "פתח תחקיר" יפתח את הטופס ישירות ב-SharePoint.
+            </p>
           </div>
           <InvestigationDocument investigation={investigation.data} />
         </>

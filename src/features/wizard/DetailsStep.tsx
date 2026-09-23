@@ -28,9 +28,9 @@ export function DetailsStep({ state, dispatch, onEditRows }: Props) {
   return (
     <div className="form-page">
       <p className="selection-summary">
-        {rowsLabel(state.selectedRowIds.size)} מתוך <Ltr>{state.log?.sourceFileName}</Ltr>
+        {rowsLabel(state.rows.length)} מיומן המבצעים
         <button type="button" className="link-button" onClick={onEditRows}>
-          שינוי הבחירה
+          עריכת השורות
         </button>
       </p>
 
