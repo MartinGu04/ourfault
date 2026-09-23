@@ -69,7 +69,7 @@ impl<'a> InvestigationService<'a> {
     /// Most recent investigations first.
     pub fn recent(&self, limit: usize) -> Result<Vec<InvestigationSummary>, AppError> {
         let mut all = self.sharepoint.list_investigations()?;
-        all.sort_by(|a, b| b.investigation.number.cmp(&a.investigation.number));
+        all.sort_by_key(|stored| std::cmp::Reverse(stored.investigation.number));
         Ok(all.iter().take(limit).map(InvestigationSummary::from).collect())
     }
 
