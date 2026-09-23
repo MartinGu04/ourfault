@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-compose-distribution"
+description = "Enables the compose_distribution command without any pre-configured scope."
+commands.allow = ["compose_distribution"]
+
+[[permission]]
+identifier = "deny-compose-distribution"
+description = "Denies the compose_distribution command without any pre-configured scope."
+commands.deny = ["compose_distribution"]

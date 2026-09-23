@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-peek-next-investigation-number"
+description = "Enables the peek_next_investigation_number command without any pre-configured scope."
+commands.allow = ["peek_next_investigation_number"]
+
+[[permission]]
+identifier = "deny-peek-next-investigation-number"
+description = "Denies the peek_next_investigation_number command without any pre-configured scope."
+commands.deny = ["peek_next_investigation_number"]

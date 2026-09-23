@@ -1,0 +1,42 @@
+[package]
+name = "ourfault"
+version = "0.1.0"
+description = "OurFault - investigation reports from operations-log workbooks"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+
+[lib]
+name = "ourfault_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ourfault"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+# Desktop shell and IPC. No optional features (tray, protocol-asset, ...) are enabled.
+tauri = { version = "2.11", features = [] }
+# Native "open file" dialog. Called from Rust only; the webview gets no dialog permission.
+tauri-plugin-dialog = "2.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Reads cached cell values from .xlsx. Never evaluates formulas or runs macros.
+calamine = "0.36"
+# Both already come in through calamine (same versions/features); used directly
+# only to read cell background fills, which calamine does not expose.
+zip = { version = "8.6", default-features = false, features = ["deflate"] }
+quick-xml = "0.41"
+# Local date/time for investigation dates and timestamps.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+# URL parsing for validation only - the application never fetches URLs.
+url = "2"
+thiserror = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

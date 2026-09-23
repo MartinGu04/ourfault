@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-set-system-active"
+description = "Enables the admin_set_system_active command without any pre-configured scope."
+commands.allow = ["admin_set_system_active"]
+
+[[permission]]
+identifier = "deny-admin-set-system-active"
+description = "Denies the admin_set_system_active command without any pre-configured scope."
+commands.deny = ["admin_set_system_active"]

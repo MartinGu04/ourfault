@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-distribute-investigation"
+description = "Enables the distribute_investigation command without any pre-configured scope."
+commands.allow = ["distribute_investigation"]
+
+[[permission]]
+identifier = "deny-distribute-investigation"
+description = "Denies the distribute_investigation command without any pre-configured scope."
+commands.deny = ["distribute_investigation"]

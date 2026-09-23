@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-save-system"
+description = "Enables the admin_save_system command without any pre-configured scope."
+commands.allow = ["admin_save_system"]
+
+[[permission]]
+identifier = "deny-admin-save-system"
+description = "Denies the admin_save_system command without any pre-configured scope."
+commands.deny = ["admin_save_system"]
