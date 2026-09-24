@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import type { Navigation } from '../../App';
 import type { InvestigationNumber, PublishedInvestigation } from '../../api/types';
+import { INVESTIGATION_STATUS_LABELS } from '../../lib/labels';
 import { Banner, Button, Ltr } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { CopyButton } from '../investigation/CopyButton';
@@ -10,15 +11,17 @@ import { ExportPdfButton, type Notice } from '../investigation/ExportPdfButton';
 
 interface Props {
   created: PublishedInvestigation;
+  /** The draft had already been published (e.g. a retry); nothing new was created. */
+  alreadyExisted: boolean;
   expectedNumber: InvestigationNumber | null;
   navigation: Navigation;
 }
 
-export function SuccessStep({ created, expectedNumber, navigation }: Props) {
+export function SuccessStep({ created, alreadyExisted, expectedNumber, navigation }: Props) {
   const [distributing, setDistributing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const number = created.investigation.number;
-  const numberChanged = expectedNumber !== null && expectedNumber !== number;
+  const numberChanged = !alreadyExisted && expectedNumber !== null && expectedNumber !== number;
   const { activity } = created.investigation;
 
   return (
@@ -26,7 +29,7 @@ export function SuccessStep({ created, expectedNumber, navigation }: Props) {
       <div className="success-icon">
         <Icon name="check" size={32} />
       </div>
-      <h2 className="success-title">התחקיר נוצר בהצלחה</h2>
+      <h2 className="success-title">{alreadyExisted ? 'התחקיר כבר נוצר מטיוטה זו' : 'התחקיר נוצר בהצלחה'}</h2>
       <p className="success-number">
         <Ltr>{number}</Ltr>
       </p>
@@ -34,6 +37,11 @@ export function SuccessStep({ created, expectedNumber, navigation }: Props) {
         {activity.name} · {activity.systems.map((system) => system.name).join(', ')}
       </p>
 
+      {alreadyExisted && (
+        <Banner>
+          טיוטה זו כבר הפכה לתחקיר <Ltr>{number}</Ltr>. מוצג התחקיר הקיים; לא נוצר תחקיר נוסף ולא הוקצה מספר חדש.
+        </Banner>
+      )}
       {numberChanged && (
         <Banner>
           המספר <Ltr>{expectedNumber}</Ltr> נתפס בינתיים בתחקיר אחר, ולכן התחקיר נשמר במספר <Ltr>{number}</Ltr>.
@@ -52,7 +60,9 @@ export function SuccessStep({ created, expectedNumber, navigation }: Props) {
         </div>
         <CopyButton value={created.publication.url} label="העתקה" />
       </div>
-      <p className="success-hint">הטיוטה הוסרה מרשימת הטיוטות. סטטוס התחקיר: הושלם.</p>
+      <p className="success-hint">
+        הטיוטה הוסרה מרשימת הטיוטות. סטטוס התחקיר: {INVESTIGATION_STATUS_LABELS[created.lifecycle.status]}.
+      </p>
       {notice && <Banner tone={notice.tone}>{notice.content}</Banner>}
 
       <div className="success-actions">

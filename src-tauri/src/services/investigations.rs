@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use super::Now;
 use crate::adapters::{AdapterError, ConfigurationRepository, DraftRepository, InvestigationPublisher, PublishRequest};
-use crate::domain::draft::{Conversion, DraftContent};
+use crate::domain::draft::{Conversion, Draft, DraftContent};
 use crate::domain::investigation::{Investigation, InvestigationSummary, PublishedInvestigation};
 use crate::domain::investigation_number::InvestigationNumber;
 use crate::domain::lifecycle::Lifecycle;
@@ -25,6 +25,17 @@ pub struct Review {
     /// The number the investigation would get now. Informational only, and
     /// `None` when the destination cannot be reached.
     pub expected_number: Option<InvestigationNumber>,
+}
+
+/// The result of completing a draft.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Completion {
+    pub investigation: PublishedInvestigation,
+    /// True when the draft had already been published (e.g. a retry after a
+    /// partial failure): the existing investigation is returned and nothing
+    /// new was created.
+    pub already_existed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,6 +86,13 @@ impl<'a> InvestigationService<'a> {
     /// Completes a draft: validates it, allocates the final number and
     /// publishes it, then marks the draft as converted.
     ///
+    /// Idempotent: one draft creates at most one investigation. The publisher
+    /// is asked first whether this draft was already published (this does
+    /// not rely on the draft's "converted" mark, whose write may have failed
+    /// after publication), and the publisher itself refuses a second
+    /// investigation from the same draft, so even simultaneous attempts
+    /// return the one existing investigation.
+    ///
     /// Numbering is optimistic: take the next free number, ask the publisher
     /// to create-if-absent, and on a conflict (another workstation was
     /// faster) retry with a fresh number. If anything fails before the
@@ -85,8 +103,11 @@ impl<'a> InvestigationService<'a> {
         expected_revision: u64,
         now: &Now,
         by: &str,
-    ) -> Result<PublishedInvestigation, AppError> {
+    ) -> Result<Completion, AppError> {
         let draft = self.drafts.get(draft_id)?.ok_or(AppError::NotFound)?;
+        if let Some(existing) = self.publisher.find_by_source_draft(&draft.id)? {
+            return Ok(self.already_created(draft, existing, now));
+        }
         if !draft.is_open() {
             return Err(AppError::Conflict { code: "draft_converted" });
         }
@@ -95,8 +116,9 @@ impl<'a> InvestigationService<'a> {
         }
         let configuration = self.configuration.load()?.value;
         let mut candidate = self.next_number(now)?;
-        let investigation =
-            Investigation::build(candidate, &draft.content, &configuration).map_err(AppError::validation)?;
+        let investigation = Investigation::build(candidate, &draft.content, &configuration)
+            .map_err(AppError::validation)?
+            .with_source_draft(&draft.id);
         let lifecycle = Lifecycle::completed(&now.timestamp, by);
 
         for _ in 0..MAX_ALLOCATION_ATTEMPTS {
@@ -110,21 +132,16 @@ impl<'a> InvestigationService<'a> {
             };
             match self.publisher.publish(request) {
                 Ok(published) => {
-                    let converted = crate::domain::draft::Draft {
-                        revision: draft.revision + 1,
-                        updated_at: now.timestamp.clone(),
-                        converted: Some(Conversion {
-                            number: published.investigation.number,
-                            at: now.timestamp.clone(),
-                        }),
-                        ..draft
-                    };
-                    // The investigation exists now; a failure here must not
-                    // turn the successful publication into an error.
-                    if let Err(error) = self.drafts.save(&converted, Some(expected_revision)) {
-                        crate::log_internal("marking draft as converted", &error);
-                    }
-                    return Ok(published);
+                    self.mark_converted(draft, &published, now);
+                    return Ok(Completion { investigation: published, already_existed: false });
+                }
+                Err(AdapterError::DraftAlreadyPublished) => {
+                    // A simultaneous attempt for the same draft won.
+                    let existing = self
+                        .publisher
+                        .find_by_source_draft(&draft.id)?
+                        .ok_or_else(|| AppError::internal("complete investigation", &"published draft not found"))?;
+                    return Ok(self.already_created(draft, existing, now));
                 }
                 Err(AdapterError::NumberTaken(taken)) => {
                     // Prefer the destination's view; never retry the same number.
@@ -140,6 +157,30 @@ impl<'a> InvestigationService<'a> {
             }
         }
         Err(AppError::internal("complete investigation", &"could not allocate a free investigation number"))
+    }
+
+    fn already_created(&self, draft: Draft, existing: PublishedInvestigation, now: &Now) -> Completion {
+        if draft.is_open() {
+            self.mark_converted(draft, &existing, now);
+        }
+        Completion { investigation: existing, already_existed: true }
+    }
+
+    /// Records on the draft which investigation it became. Best effort: the
+    /// investigation exists already, and a failure here is repaired by the
+    /// next completion attempt, which finds the investigation by its source
+    /// draft.
+    fn mark_converted(&self, draft: Draft, published: &PublishedInvestigation, now: &Now) {
+        let expected = draft.revision;
+        let converted = Draft {
+            revision: expected + 1,
+            updated_at: now.timestamp.clone(),
+            converted: Some(Conversion { number: published.investigation.number, at: now.timestamp.clone() }),
+            ..draft
+        };
+        if let Err(error) = self.drafts.save(&converted, Some(expected)) {
+            crate::log_internal("marking draft as converted", &error);
+        }
     }
 
     /// Most recent investigations first.
@@ -257,8 +298,8 @@ pub(crate) mod tests {
         let first = fixture.draft();
         let second = fixture.draft();
 
-        let a = service.complete(&first.id, 1, &now(), "op").unwrap();
-        let b = service.complete(&second.id, 1, &now(), "op").unwrap();
+        let a = service.complete(&first.id, 1, &now(), "op").unwrap().investigation;
+        let b = service.complete(&second.id, 1, &now(), "op").unwrap().investigation;
         assert_eq!(a.investigation.number.to_string(), "001-2026");
         assert_eq!(b.investigation.number.to_string(), "002-2026");
         assert_eq!(a.lifecycle.status, InvestigationStatus::Completed);
@@ -267,8 +308,11 @@ pub(crate) mod tests {
         let stored = fixture.base.drafts.get(&first.id).unwrap().unwrap();
         assert_eq!(stored.converted.unwrap().number, a.investigation.number);
         assert!(fixture.base.service().list().unwrap().is_empty(), "converted drafts leave the drafts list");
-        let again = service.complete(&first.id, 2, &now(), "op").unwrap_err();
-        assert!(matches!(again, AppError::Conflict { code: "draft_converted" }), "no double completion");
+        assert_eq!(a.investigation.source_draft_id.as_deref(), Some(first.id.as_str()));
+        let again = service.complete(&first.id, 2, &now(), "op").unwrap();
+        assert!(again.already_existed, "completing again returns the same investigation");
+        assert_eq!(again.investigation, a);
+        assert_eq!(fixture.sharepoint.list().unwrap().len(), 2);
         assert_eq!(service.recent(10).unwrap()[0].number, b.investigation.number);
     }
 
@@ -299,7 +343,8 @@ pub(crate) mod tests {
 
         // Once the destination is back, the same draft gets the first number.
         let created = fixture.service().complete(&draft.id, 1, &now(), "op").unwrap();
-        assert_eq!(created.investigation.number.to_string(), "001-2026");
+        assert!(!created.already_existed);
+        assert_eq!(created.investigation.investigation.number.to_string(), "001-2026");
     }
 
     #[test]
@@ -328,10 +373,16 @@ pub(crate) mod tests {
         fn highest_number_in_year(&self, year: u16) -> Result<Option<InvestigationNumber>, AdapterError> {
             self.inner.highest_number_in_year(year)
         }
+        fn find_by_source_draft(&self, id: &str) -> Result<Option<PublishedInvestigation>, AdapterError> {
+            self.inner.find_by_source_draft(id)
+        }
         fn publish(&self, request: PublishRequest<'_>) -> Result<PublishedInvestigation, AdapterError> {
             if !self.raced.swap(true, Ordering::SeqCst) {
+                // Another workstation's investigation (from another draft).
                 let competitor = Lifecycle::completed("t", "other workstation");
-                self.inner.publish(PublishRequest { lifecycle: &competitor, ..request })?;
+                let mut other = request.investigation.clone();
+                other.source_draft_id = Some("d-other".into());
+                self.inner.publish(PublishRequest { investigation: &other, lifecycle: &competitor, ..request })?;
             }
             self.inner.publish(request)
         }
@@ -356,12 +407,182 @@ pub(crate) mod tests {
         let draft = fixture.draft();
 
         let expected = service.review(&draft.content, &now()).unwrap().expected_number.unwrap();
-        let created = service.complete(&draft.id, 1, &now(), "op").unwrap();
+        let created = service.complete(&draft.id, 1, &now(), "op").unwrap().investigation;
 
         assert_eq!(expected.to_string(), "001-2026");
         assert_eq!(created.investigation.number.to_string(), "002-2026");
         let owners: Vec<String> = racing.list().unwrap().into_iter().map(|p| p.lifecycle.completed_by).collect();
         assert_eq!(owners, vec!["other workstation", "op"]);
+    }
+
+    /// Draft storage whose write of the "converted" mark fails once
+    /// (e.g. the share dropped right after publication succeeded).
+    struct ConversionFails<'a> {
+        inner: &'a dyn DraftRepository,
+        fail: AtomicBool,
+    }
+
+    impl DraftRepository for ConversionFails<'_> {
+        fn list(&self) -> Result<Vec<Draft>, AdapterError> {
+            self.inner.list()
+        }
+        fn get(&self, id: &str) -> Result<Option<Draft>, AdapterError> {
+            self.inner.get(id)
+        }
+        fn save(&self, draft: &Draft, expected: Option<u64>) -> Result<(), AdapterError> {
+            if draft.converted.is_some() && self.fail.swap(false, Ordering::SeqCst) {
+                return Err(AdapterError::Storage("network share went away".into()));
+            }
+            self.inner.save(draft, expected)
+        }
+        fn delete(&self, id: &str, expected: u64) -> Result<(), AdapterError> {
+            self.inner.delete(id, expected)
+        }
+    }
+
+    fn check_partial_failure_recovery(publisher: &dyn InvestigationPublisher, fixture: &Fixture) {
+        let drafts = ConversionFails { inner: &fixture.base.drafts, fail: AtomicBool::new(true) };
+        let service = InvestigationService::new(publisher, &fixture.base.configuration, &drafts);
+        let draft = fixture.draft();
+
+        // Publication succeeds, marking the draft converted fails.
+        let first = service.complete(&draft.id, 1, &now(), "op").unwrap();
+        assert!(!first.already_existed);
+        let number = first.investigation.investigation.number;
+        assert_eq!(number.to_string(), "001-2026");
+        let stored = fixture.base.drafts.get(&draft.id).unwrap().unwrap();
+        assert!(stored.is_open(), "the converted mark was not written");
+
+        // The operator retries (same revision, as the UI still has it).
+        let retry = service.complete(&draft.id, 1, &now(), "op").unwrap();
+        assert!(retry.already_existed);
+        assert_eq!(retry.investigation.investigation.number, number, "no new number");
+        assert_eq!(publisher.list().unwrap().len(), 1, "no second publisher record");
+        assert_eq!(publisher.highest_number_in_year(2026).unwrap(), Some(number), "no number consumed");
+        let repaired = fixture.base.drafts.get(&draft.id).unwrap().unwrap();
+        assert_eq!(repaired.converted.map(|c| c.number), Some(number), "the retry repairs the draft");
+
+        // Even later attempts (any revision) keep returning the same one.
+        let later = service.complete(&draft.id, 99, &now(), "op").unwrap();
+        assert!(later.already_existed);
+        assert_eq!(later.investigation.investigation.number, number);
+        assert_eq!(publisher.list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn retry_after_partial_failure_returns_the_existing_sharepoint_item() {
+        let fixture = Fixture::new();
+        check_partial_failure_recovery(&fixture.sharepoint, &fixture);
+    }
+
+    #[test]
+    fn retry_after_partial_failure_returns_the_existing_folder_record() {
+        let fixture = Fixture::new();
+        let folder = SharedFolderPublisher::new(temp_dir("share"));
+        check_partial_failure_recovery(&folder, &fixture);
+    }
+
+    fn check_simultaneous_completion(publisher: &dyn InvestigationPublisher, fixture: &Fixture) {
+        let service = fixture.with_publisher(publisher);
+        let draft = fixture.draft();
+        let results: Vec<Completion> = std::thread::scope(|scope| {
+            let attempts: Vec<_> =
+                (0..4).map(|_| scope.spawn(|| service.complete(&draft.id, 1, &now(), "op").unwrap())).collect();
+            attempts.into_iter().map(|attempt| attempt.join().unwrap()).collect()
+        });
+        let numbers: std::collections::BTreeSet<String> =
+            results.iter().map(|r| r.investigation.investigation.number.to_string()).collect();
+        assert_eq!(numbers.len(), 1, "every attempt returns the same investigation: {numbers:?}");
+        assert_eq!(results.iter().filter(|r| !r.already_existed).count(), 1, "exactly one attempt created it");
+        let from_draft: Vec<PublishedInvestigation> = publisher
+            .list()
+            .unwrap()
+            .into_iter()
+            .filter(|p| p.investigation.source_draft_id.as_deref() == Some(draft.id.as_str()))
+            .collect();
+        assert_eq!(from_draft.len(), 1, "one official investigation per draft");
+    }
+
+    #[test]
+    fn simultaneous_completions_create_one_sharepoint_item() {
+        let fixture = Fixture::new();
+        check_simultaneous_completion(&fixture.sharepoint, &fixture);
+    }
+
+    #[test]
+    fn simultaneous_completions_create_one_folder_record() {
+        let fixture = Fixture::new();
+        let folder = SharedFolderPublisher::new(temp_dir("share"));
+        check_simultaneous_completion(&folder, &fixture);
+    }
+
+    /// A publisher whose lookup does not (yet) see the earlier publication,
+    /// like a lagging list index: the publisher's own guard must still stop
+    /// the second investigation.
+    struct LaggingLookup {
+        inner: MockSharePoint,
+        lookups: std::sync::atomic::AtomicUsize,
+    }
+
+    impl InvestigationPublisher for LaggingLookup {
+        fn list(&self) -> Result<Vec<PublishedInvestigation>, AdapterError> {
+            self.inner.list()
+        }
+        fn find(&self, n: InvestigationNumber) -> Result<Option<PublishedInvestigation>, AdapterError> {
+            self.inner.find(n)
+        }
+        fn highest_number_in_year(&self, year: u16) -> Result<Option<InvestigationNumber>, AdapterError> {
+            self.inner.highest_number_in_year(year)
+        }
+        fn find_by_source_draft(&self, id: &str) -> Result<Option<PublishedInvestigation>, AdapterError> {
+            // The pre-publication checks of both attempts see nothing.
+            if self.lookups.fetch_add(1, Ordering::SeqCst) < 2 {
+                return Ok(None);
+            }
+            self.inner.find_by_source_draft(id)
+        }
+        fn publish(&self, request: PublishRequest<'_>) -> Result<PublishedInvestigation, AdapterError> {
+            self.inner.publish(request)
+        }
+        fn update_lifecycle(
+            &self,
+            number: InvestigationNumber,
+            lifecycle: &Lifecycle,
+            document: &DocumentView,
+        ) -> Result<PublishedInvestigation, AdapterError> {
+            self.inner.update_lifecycle(number, lifecycle, document)
+        }
+    }
+
+    #[test]
+    fn the_publisher_guard_stops_a_second_investigation_the_lookup_missed() {
+        let fixture = Fixture::new();
+        let lagging = LaggingLookup {
+            inner: MockSharePoint::open(temp_dir("lag").join("sp.json"), Vec::new).unwrap(),
+            lookups: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let drafts = ConversionFails { inner: &fixture.base.drafts, fail: AtomicBool::new(true) };
+        let service = InvestigationService::new(&lagging, &fixture.base.configuration, &drafts);
+        let draft = fixture.draft();
+
+        let first = service.complete(&draft.id, 1, &now(), "op").unwrap();
+        let second = service.complete(&draft.id, 1, &now(), "op").unwrap();
+        assert!(!first.already_existed);
+        assert!(second.already_existed);
+        assert_eq!(second.investigation.investigation.number, first.investigation.investigation.number);
+        assert_eq!(lagging.list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn number_conflicts_with_other_drafts_still_retry() {
+        // Two different drafts completed back to back get consecutive numbers,
+        // i.e. the draft guard does not interfere with number allocation.
+        let fixture = Fixture::new();
+        let service = fixture.service();
+        let a = service.complete(&fixture.draft().id, 1, &now(), "op").unwrap();
+        let b = service.complete(&fixture.draft().id, 1, &now(), "op").unwrap();
+        assert!(!a.already_existed && !b.already_existed);
+        assert_eq!(b.investigation.investigation.number.to_string(), "002-2026");
     }
 
     #[test]

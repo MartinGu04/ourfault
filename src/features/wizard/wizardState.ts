@@ -5,6 +5,7 @@
 
 import type {
   ActivityInput,
+  Completion,
   Draft,
   DraftContent,
   DraftStep,
@@ -13,7 +14,6 @@ import type {
   InvestigationNumber,
   LogRow,
   PastedRows,
-  PublishedInvestigation,
   SectionRecord,
 } from '../../api/types';
 
@@ -39,7 +39,7 @@ export interface WizardState {
   preliminaryCheckUrl: string;
   /** Problems reported by the backend (review or completion). */
   fieldErrors: readonly FieldError[];
-  created: PublishedInvestigation | null;
+  created: Completion | null;
   /** The number shown before completion, to explain if it changed. */
   expectedNumber: InvestigationNumber | null;
 }
@@ -57,7 +57,7 @@ export type WizardAction =
   | { type: 'stepRequested'; step: DraftStep }
   | { type: 'reviewed'; issues: readonly FieldError[]; expectedNumber: InvestigationNumber | null }
   | { type: 'validationFailed'; errors: readonly FieldError[] }
-  | { type: 'created'; investigation: PublishedInvestigation };
+  | { type: 'created'; completion: Completion };
 
 export const emptyActivity: ActivityInput = {
   name: '',
@@ -207,7 +207,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, fieldErrors: errors, expectedNumber };
     }
     case 'created':
-      return { ...state, step: 'done', created: action.investigation };
+      return { ...state, step: 'done', created: action.completion };
   }
 }
 

@@ -78,20 +78,29 @@ Investigation
 │  ├─ name, activityType (Mission | Experiment | Training | Other{description})
 │  ├─ systems[]         snapshot {id, name}; one or more, no "primary"
 │  ├─ status            Active | Completed        (activity status)
-│  ├─ planned {start, end}, actual {start, end?}
+│  ├─ planned {start, end}, actual {start?, end?}
 │  └─ nightActivity, seniorStaffing
 ├─ sections[]           snapshot of each configured section + typed cells
 ├─ rows[]               event chronology (pasted operations-log rows)
-└─ preliminaryCheckUrl
+├─ preliminaryCheckUrl
+└─ sourceDraftId        the draft it was created from (one draft → at most one investigation)
 PublishedInvestigation = Investigation + Lifecycle + Publication{destination, url, reference}
 ```
 
 Rules worth knowing:
 
-- Planned start/end and actual start are required. The actual end is
-  required only once the activity status is *Completed*; while it is
-  *Active* it may be empty. Each end must not precede its start; planned and
-  actual windows need not match.
+- Times are never required while the investigation is a draft: drafts
+  save with any time field empty or half-typed, and autosave never
+  validates them.
+- To complete an investigation, the planned start and end are required.
+  The actual start and end are required only when the activity status is
+  *Completed*; while it is *Active* both may be empty (or only the start
+  filled). Each end must not precede its start; planned and actual windows
+  need not match. Missing values (`required`) and invalid values or ranges
+  (`invalid_datetime`, `end_before_start`) are listed as separate groups in
+  the review summary.
+- The investigation date (dashboard column) is the actual start, or the
+  planned start while the activity has not actually started.
 - The yes/no questions must be answered explicitly (nothing defaults to "no").
 - A `System` field in a technical section may only reference one of the
   investigation's own systems. A `Station` field must reference an active
@@ -141,13 +150,37 @@ Multi Select, Station, System. Select fields carry their options.
   flight (`features/wizard/autosave.ts`). An untouched new investigation is
   never saved. The indicator shows *נשמר* / *שומר...* / *שגיאה בשמירה* (with
   retry); leaving with unsaved changes asks first.
-- Completion (`services/investigations.rs::complete`): load the draft (must be
-  open and at the expected revision) → validate → allocate and publish →
-  **only then** mark the draft converted. If publishing fails, the draft is
-  untouched and no number is used. A converted draft cannot be completed
-  again. If marking it converted fails after a successful publication, the
-  investigation still exists and the failure is logged; the draft would then
-  remain in the list (known limitation).
+- Completion (`services/investigations.rs::complete`): load the draft →
+  ask the publisher whether an investigation with this `sourceDraftId`
+  already exists (if so, return it) → check the draft is open and at the
+  expected revision → validate → allocate and publish → **only then** mark
+  the draft converted. If publishing fails, the draft is untouched and no
+  number is used.
+
+### One draft, at most one investigation
+
+Completion is idempotent and does not depend on the draft's "converted"
+mark (that write may fail after publication succeeded):
+
+1. Every investigation records its `sourceDraftId`.
+2. Before publishing, the service looks the draft up at the publisher
+   (`find_by_source_draft`) and returns the existing investigation if there
+   is one (`alreadyExisted: true`; the UI says that nothing new was
+   created). A retry after a partial failure therefore returns the same
+   investigation without allocating a number or writing a record, and
+   repairs the draft's converted mark.
+3. The publisher enforces the invariant itself, so two simultaneous
+   attempts cannot both publish: `publish` refuses a second investigation
+   from the same draft with `DraftAlreadyPublished`, and the service then
+   returns the one that exists.
+   - Mock SharePoint: checked under the same lock as the number (a real
+     list would use a unique-values column for the source draft id).
+   - Shared folder: attempts for one draft are serialised by a
+     create-if-absent lock file (`.drafts/<id>.lock`, taken over when older
+     than two minutes after a crash); inside the lock an existing
+     investigation for the draft is detected before anything is written.
+     `.drafts/<id>.marker` indexes draft → number; without it, the records
+     themselves are scanned.
 
 ## Investigation numbers
 
@@ -284,7 +317,7 @@ data is seeded. Delete them, or the whole data directory, at will.
 | File system | The webview never supplies paths. Draft ids are restricted to a safe alphabet; export and publication file names are sanitised (no separators, reserved characters or device names); exports never overwrite. |
 | Content injection | Values are rendered as React text only; no `dangerouslySetInnerHTML`, no `eval`. Generated HTML (SharePoint body, e-mail) escapes every value. |
 | Network | No outbound requests anywhere. CSP `connect-src ipc: http://ipc.localhost`. The navigation guard keeps the webview on the app origin. The preliminary-checks link is validated structurally and copied, never opened or fetched. |
-| Concurrency | Revision checks on configuration and drafts; atomic create-if-absent for investigation numbers. |
+| Concurrency | Revision checks on configuration and drafts; atomic create-if-absent for investigation numbers; at most one investigation per draft (`sourceDraftId`, enforced by the publisher). |
 | Errors | Only codes reach the UI; paths and library errors go to the log. |
 | Supply chain | Small dependency set, pinned by `Cargo.lock` / `package-lock.json`. CI uses only GitHub-owned actions. |
 

@@ -24,6 +24,7 @@ pub const PLANNED: &str = "תכנון";
 pub const ACTUAL: &str = "ביצוע בפועל";
 pub const START: &str = "התחלה";
 pub const END: &str = "סיום";
+pub const NOT_STARTED: &str = "טרם החלה";
 pub const NOT_ENDED: &str = "טרם הסתיימה";
 
 pub const CHRONOLOGY: &str = "השתלשלות אירועים";

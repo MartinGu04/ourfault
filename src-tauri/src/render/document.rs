@@ -213,7 +213,7 @@ impl DocumentView {
         blocks.extend(times(
             [format_local(activity.planned.start), format_local(activity.planned.end)],
             [
-                format_local(activity.actual.start),
+                activity.actual.start.map(format_local).unwrap_or_else(|| labels::NOT_STARTED.to_owned()),
                 activity.actual.end.map(format_local).unwrap_or_else(|| labels::NOT_ENDED.to_owned()),
             ],
         ));
@@ -261,8 +261,13 @@ impl DocumentView {
             }
             Some(kind) => labels::activity_type(kind).to_owned(),
         };
-        let actual_end = match (activity.status, activity.actual_end.trim().is_empty()) {
-            (Some(ActivityStatus::Active), true) => labels::NOT_ENDED.to_owned(),
+        let active = activity.status == Some(ActivityStatus::Active);
+        let actual_start = match (active, activity.actual_start.trim().is_empty()) {
+            (true, true) => labels::NOT_STARTED.to_owned(),
+            _ => format_raw_time(&activity.actual_start),
+        };
+        let actual_end = match (active, activity.actual_end.trim().is_empty()) {
+            (true, true) => labels::NOT_ENDED.to_owned(),
             _ => format_raw_time(&activity.actual_end),
         };
 
@@ -285,7 +290,7 @@ impl DocumentView {
         }];
         blocks.extend(times(
             [format_raw_time(&activity.planned_start), format_raw_time(&activity.planned_end)],
-            [format_raw_time(&activity.actual_start), actual_end],
+            [actual_start, actual_end],
         ));
 
         for section in configuration.active_sections() {

@@ -6,6 +6,7 @@ import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 import { ApiError, toAppError } from './errors';
 import type {
   AdminConfiguration,
+  Completion,
   DistributionMessage,
   Draft,
   DraftContent,
@@ -18,7 +19,6 @@ import type {
   MailTemplate,
   PastedRows,
   PublicationSettings,
-  PublishedInvestigation,
   Review,
   SectionDefinition,
   SectionInput,
@@ -56,7 +56,8 @@ export const api = {
   /** Parses text the operator pasted (rows copied from Excel). */
   parsePastedRows: (text: string) => call<PastedRows>('parse_pasted_rows', { text }),
   reviewDraft: (content: DraftContent) => call<Review>('review_draft', { content }),
-  completeDraft: (id: string, revision: number) => call<PublishedInvestigation>('complete_draft', { id, revision }),
+  /** Idempotent: a draft that was already published returns that investigation. */
+  completeDraft: (id: string, revision: number) => call<Completion>('complete_draft', { id, revision }),
 
   listRecentInvestigations: () => call<InvestigationSummary[]>('list_recent_investigations'),
   searchInvestigations: (query: string) => call<InvestigationSummary[]>('search_investigations', { query }),

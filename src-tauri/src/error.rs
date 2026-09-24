@@ -57,7 +57,9 @@ impl From<AdapterError> for AppError {
                 crate::log_internal("destination unavailable", &error);
                 AppError::Unavailable
             }
-            AdapterError::NumberTaken(_) | AdapterError::Storage(_) => AppError::internal("adapter", &error),
+            AdapterError::NumberTaken(_) | AdapterError::DraftAlreadyPublished | AdapterError::Storage(_) => {
+                AppError::internal("adapter", &error)
+            }
         }
     }
 }

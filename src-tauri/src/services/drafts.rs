@@ -173,6 +173,20 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn autosave_accepts_partial_and_unfinished_times() {
+        let fixture = Fixture::new();
+        let service = fixture.service();
+        let mut content = DraftContent::default();
+        content.activity.planned_start = "2026-09-20T08:00".into();
+        content.activity.actual_start = "2026-09-20T".into(); // still being typed
+        content.activity.actual_end = "2026-09-19T08:00".into(); // before the start, not yet fixed
+        let draft = service.create(content.clone(), DraftStep::Activity, &now(), "op").unwrap();
+        content.activity.planned_end = "2026-09-20T07:00".into();
+        let saved = service.save(&draft.id, 1, content.clone(), DraftStep::Activity, &now()).unwrap();
+        assert_eq!(service.get(&saved.id).unwrap().content, content);
+    }
+
+    #[test]
     fn stale_autosaves_are_rejected_without_losing_the_stored_draft() {
         let fixture = Fixture::new();
         let service = fixture.service();

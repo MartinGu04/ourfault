@@ -138,7 +138,7 @@ pub struct ActivityInput {
     pub senior_staffing: Option<bool>,
 }
 
-/// Planned times. Both are required.
+/// Planned times. Both are required to complete an investigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlannedTimes {
@@ -146,11 +146,12 @@ pub struct PlannedTimes {
     pub end: LocalDateTime,
 }
 
-/// Actual times. The end stays empty while the activity is still active.
+/// Actual times. Both may stay empty while the activity is still active;
+/// both are required once it has completed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActualTimes {
-    pub start: LocalDateTime,
+    pub start: Option<LocalDateTime>,
     pub end: Option<LocalDateTime>,
 }
 
@@ -170,9 +171,10 @@ pub struct Activity {
 }
 
 impl Activity {
-    /// The date the investigation is filed under: the actual start.
+    /// The date the investigation is filed under: the actual start, or the
+    /// planned start while the activity has not actually started.
     pub fn date(&self) -> NaiveDate {
-        self.actual.start.date()
+        self.actual.start.unwrap_or(self.planned.start).date()
     }
 
     pub fn system_names(&self) -> Vec<String> {
@@ -181,8 +183,16 @@ impl Activity {
 }
 
 impl ActivityInput {
-    /// Validates the input against the current configuration. Violations are
-    /// appended to `errors`; `None` is returned if there were any.
+    /// Validates the input for completion against the current configuration.
+    /// Violations are appended to `errors`; `None` is returned if there were
+    /// any. Drafts are never validated this way: they may be saved with any
+    /// field empty or incomplete.
+    ///
+    /// Times: the planned start and end are required. The actual times are
+    /// required only once the activity status is `Completed`; while it is
+    /// `Active` either may be empty. Missing values are reported as
+    /// `required`, unparsable ones as `invalid_datetime`, and an end before
+    /// its start as `end_before_start` (on the end field).
     pub fn validate(&self, configuration: &Configuration, errors: &mut Vec<FieldError>) -> Option<Activity> {
         let before = errors.len();
         let mut check = |field: &str, result: Result<String, &'static str>| {
@@ -216,14 +226,12 @@ impl ActivityInput {
             errors.push(FieldError::new("activityStatus", "required"));
         }
 
-        let planned_start = required_time(&self.planned_start, "plannedStart", errors);
-        let planned_end = required_time(&self.planned_end, "plannedEnd", errors);
-        let actual_start = required_time(&self.actual_start, "actualStart", errors);
-        let actual_end = match (self.status, self.actual_end.trim().is_empty()) {
-            // The actual end may stay empty while the activity is still active.
-            (Some(ActivityStatus::Active) | None, true) => None,
-            _ => required_time(&self.actual_end, "actualEnd", errors),
-        };
+        let planned_start = time(&self.planned_start, "plannedStart", true, errors);
+        let planned_end = time(&self.planned_end, "plannedEnd", true, errors);
+        // Without a status only `activityStatus` is reported, not the actual times.
+        let actual_required = self.status == Some(ActivityStatus::Completed);
+        let actual_start = time(&self.actual_start, "actualStart", actual_required, errors);
+        let actual_end = time(&self.actual_end, "actualEnd", actual_required, errors);
         check_order(planned_start, planned_end, "plannedEnd", errors);
         check_order(actual_start, actual_end, "actualEnd", errors);
 
@@ -243,7 +251,7 @@ impl ActivityInput {
             systems,
             status: self.status?,
             planned: PlannedTimes { start: planned_start?, end: planned_end? },
-            actual: ActualTimes { start: actual_start?, end: actual_end },
+            actual: ActualTimes { start: actual_start, end: actual_end },
             night_activity: self.night_activity?,
             senior_staffing: self.senior_staffing?,
         })
@@ -278,9 +286,13 @@ impl ActivityInput {
     }
 }
 
-fn required_time(value: &str, field: &str, errors: &mut Vec<FieldError>) -> Option<LocalDateTime> {
+/// Parses an optional or required date-time field. Empty optional fields
+/// are `None` without an error.
+fn time(value: &str, field: &str, required: bool, errors: &mut Vec<FieldError>) -> Option<LocalDateTime> {
     if value.trim().is_empty() {
-        errors.push(FieldError::new(field, "required"));
+        if required {
+            errors.push(FieldError::new(field, "required"));
+        }
         return None;
     }
     value.parse().map_err(|code| errors.push(FieldError::new(field, code))).ok()
@@ -332,6 +344,7 @@ pub(crate) mod tests {
         assert_eq!(activity.activity_type, ActivityType::Mission);
         assert_eq!(activity.system_names(), vec!["מערכת alpha", "מערכת beta"]);
         assert_eq!(activity.actual.end.unwrap().to_string(), "2026-09-20T12:40");
+        assert_eq!(activity.actual.start.unwrap().to_string(), "2026-09-20T08:15");
         assert_eq!(activity.date().to_string(), "2026-09-20");
     }
 
@@ -403,16 +416,71 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn an_active_activity_may_have_no_actual_end() {
+    fn planned_times_are_required_to_complete() {
+        let mut input = activity_input();
+        input.planned_start = " ".into();
+        input.planned_end = String::new();
+        assert_eq!(
+            codes(&validate(&input).unwrap_err()),
+            vec![("plannedStart", "required"), ("plannedEnd", "required")]
+        );
+        for status in [ActivityStatus::Active, ActivityStatus::Completed] {
+            input.status = Some(status);
+            assert!(validate(&input).is_err(), "{status:?}");
+        }
+    }
+
+    #[test]
+    fn an_active_activity_may_have_no_actual_times() {
+        let mut input = activity_input();
+        input.status = Some(ActivityStatus::Active);
+        input.actual_start = String::new();
+        input.actual_end = String::new();
+        let activity = validate(&input).unwrap();
+        assert_eq!(activity.status, ActivityStatus::Active);
+        assert_eq!(activity.actual, ActualTimes { start: None, end: None });
+        assert_eq!(activity.date().to_string(), "2026-09-20", "filed under the planned start");
+    }
+
+    #[test]
+    fn an_active_activity_may_have_started_without_ending() {
         let mut input = activity_input();
         input.status = Some(ActivityStatus::Active);
         input.actual_end = String::new();
         let activity = validate(&input).unwrap();
-        assert_eq!(activity.status, ActivityStatus::Active);
+        assert_eq!(activity.actual.start.unwrap().to_string(), "2026-09-20T08:15");
         assert_eq!(activity.actual.end, None);
+    }
 
+    #[test]
+    fn a_completed_activity_requires_both_actual_times() {
+        let mut input = activity_input();
         input.status = Some(ActivityStatus::Completed);
+        input.actual_end = String::new();
         assert_eq!(codes(&validate(&input).unwrap_err()), vec![("actualEnd", "required")]);
+        input.actual_start = String::new();
+        assert_eq!(codes(&validate(&input).unwrap_err()), vec![("actualStart", "required"), ("actualEnd", "required")]);
+    }
+
+    #[test]
+    fn ranges_are_checked_for_active_activities_too() {
+        let mut input = activity_input();
+        input.status = Some(ActivityStatus::Active);
+        input.actual_start = "2026-09-20T10:00".into();
+        input.actual_end = "2026-09-20T09:00".into();
+        assert_eq!(codes(&validate(&input).unwrap_err()), vec![("actualEnd", "end_before_start")]);
+    }
+
+    #[test]
+    fn missing_and_invalid_values_have_different_codes() {
+        let mut input = activity_input();
+        input.planned_start = String::new();
+        input.planned_end = "tomorrow".into();
+        input.actual_end = "2026-09-20T08:00".into();
+        assert_eq!(
+            codes(&validate(&input).unwrap_err()),
+            vec![("plannedStart", "required"), ("plannedEnd", "invalid_datetime"), ("actualEnd", "end_before_start")]
+        );
     }
 
     #[test]
@@ -428,7 +496,6 @@ pub(crate) mod tests {
                 "activityStatus",
                 "plannedStart",
                 "plannedEnd",
-                "actualStart",
                 "nightActivity",
                 "seniorStaffing"
             ]

@@ -10,7 +10,7 @@ use tauri::State;
 use crate::adapters::ExportedFile;
 use crate::domain::configuration::PublicationSettings;
 use crate::domain::draft::{Draft, DraftContent, DraftStep, DraftSummary};
-use crate::domain::investigation::{InvestigationSummary, PublishedInvestigation};
+use crate::domain::investigation::InvestigationSummary;
 use crate::domain::investigation_number::InvestigationNumber;
 use crate::domain::log_rows::{self, PastedRows};
 use crate::domain::mail::{DistributionMessage, MailTemplate};
@@ -22,7 +22,7 @@ use crate::services::configuration::{AdminConfiguration, ConfigurationService, W
 use crate::services::distribution::{DistributionService, SentDistribution};
 use crate::services::drafts::DraftService;
 use crate::services::export::ExportService;
-use crate::services::investigations::{InvestigationDetails, InvestigationService, Review};
+use crate::services::investigations::{Completion, InvestigationDetails, InvestigationService, Review};
 use crate::services::Now;
 use crate::state::{AppState, Session, WorkMode};
 
@@ -137,12 +137,9 @@ pub async fn review_draft(state: State<'_, AppState>, content: DraftContent) -> 
 }
 
 /// Completes the saved draft: allocates the final number and publishes.
+/// Idempotent: a draft that was already published returns its investigation.
 #[tauri::command]
-pub async fn complete_draft(
-    state: State<'_, AppState>,
-    id: String,
-    revision: u64,
-) -> CommandResult<PublishedInvestigation> {
+pub async fn complete_draft(state: State<'_, AppState>, id: String, revision: u64) -> CommandResult<Completion> {
     investigations(&state)?.complete(&id, revision, &Now::local(), &state.operator_name)
 }
 

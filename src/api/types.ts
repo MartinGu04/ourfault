@@ -281,6 +281,13 @@ export interface PublishedInvestigation {
   publication: Publication;
 }
 
+/** Result of completing a draft (idempotent). */
+export interface Completion {
+  investigation: PublishedInvestigation;
+  /** The draft had already been published; nothing new was created. */
+  alreadyExisted: boolean;
+}
+
 export interface InvestigationDetails {
   investigation: PublishedInvestigation;
   summary: InvestigationSummary;

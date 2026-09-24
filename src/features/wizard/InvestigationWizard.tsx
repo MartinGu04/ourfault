@@ -159,9 +159,9 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
         return;
       }
       const { id, revision } = draftRef.current;
-      const investigation = await api.completeDraft(id, revision);
+      const completion = await api.completeDraft(id, revision);
       saverRef.current?.dispose();
-      dispatch({ type: 'created', investigation });
+      dispatch({ type: 'created', completion });
     });
 
   async function exit(force = false) {
@@ -197,7 +197,12 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
     return (
       <div className="wizard">
         <div className="wizard-body">
-          <SuccessStep created={state.created} expectedNumber={state.expectedNumber} navigation={navigation} />
+          <SuccessStep
+            created={state.created.investigation}
+            alreadyExisted={state.created.alreadyExisted}
+            expectedNumber={state.expectedNumber}
+            navigation={navigation}
+          />
         </div>
       </div>
     );

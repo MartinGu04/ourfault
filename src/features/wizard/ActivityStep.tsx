@@ -166,17 +166,19 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
           </h2>
           {dateTime('plannedStart', 'התחלה')}
           {dateTime('plannedEnd', 'סיום')}
+          <p className="field-hint">חובה לפני יצירת התחקיר. הטיוטה נשמרת גם כשהשדות ריקים.</p>
         </section>
         <section className="form-card" aria-labelledby="times-actual">
           <h2 id="times-actual" className="form-card-title">
             ביצוע בפועל
           </h2>
           {dateTime('actualStart', 'התחלה')}
-          {dateTime(
-            'actualEnd',
-            'סיום',
-            activity.status === 'completed' ? undefined : 'ניתן להשאיר ריק כל עוד הפעילות פעילה.',
-          )}
+          {dateTime('actualEnd', 'סיום')}
+          <p className="field-hint">
+            {activity.status === 'completed'
+              ? 'הפעילות הסתיימה: יש למלא התחלה וסיום בפועל לפני יצירת התחקיר.'
+              : 'כל עוד הפעילות פעילה, ניתן להשאיר את זמני הביצוע ריקים או למלא רק התחלה.'}
+          </p>
         </section>
       </div>
     </div>

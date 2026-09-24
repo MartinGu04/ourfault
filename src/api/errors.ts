@@ -96,8 +96,13 @@ const FIELD_OVERRIDES: Record<string, Record<string, string>> = {
   activityStatus: { required: 'יש לבחור סטטוס פעילות' },
   nightActivity: { required: 'יש לסמן כן או לא' },
   seniorStaffing: { required: 'יש לסמן כן או לא' },
+  plannedEnd: { end_before_start: 'סיום התכנון מוקדם מההתחלה המתוכננת' },
+  actualEnd: { end_before_start: 'הסיום בפועל מוקדם מההתחלה בפועל' },
   number: { invalid_number: `מספר תחקיר לא תקין. יש להזין מספר כמו ${ltr('056-2026')}` },
 };
+
+/** Codes that mean "a required value is missing" (as opposed to an invalid value). */
+export const MISSING_CODES: readonly string[] = ['required', 'no_rows'];
 
 export function fieldMessage(error: FieldError): string {
   return FIELD_OVERRIDES[error.field]?.[error.code] ?? FIELD_MESSAGES[error.code] ?? 'ערך לא תקין';

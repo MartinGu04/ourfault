@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn sends_to_every_involved_system_and_records_the_status() {
         let fixture = Fixture::new();
-        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap();
+        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap().investigation;
         let mail = MockDistribution::open(temp_dir("mail").join("outbox.json")).unwrap();
         let service = DistributionService::new(&fixture.sharepoint, &fixture.base.configuration, &mail);
         let number = published.investigation.number;
@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn refuses_to_send_without_recipients() {
         let fixture = Fixture::new();
-        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap();
+        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap().investigation;
         let config_service = crate::services::configuration::Administration::new(
             &fixture.base.configuration,
             crate::state::AdminGrant::for_tests(),

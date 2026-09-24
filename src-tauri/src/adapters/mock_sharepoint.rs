@@ -117,9 +117,24 @@ impl InvestigationPublisher for MockSharePoint {
         Ok(self.items()?.iter().map(|item| item.investigation.number).filter(|n| n.year() == year).max())
     }
 
+    fn find_by_source_draft(&self, draft_id: &str) -> Result<Option<PublishedInvestigation>, AdapterError> {
+        Ok(self
+            .items()?
+            .iter()
+            .find(|item| item.investigation.source_draft_id.as_deref() == Some(draft_id))
+            .map(ListItem::published))
+    }
+
     fn publish(&self, request: PublishRequest<'_>) -> Result<PublishedInvestigation, AdapterError> {
+        // Both checks and the insert happen under one lock, like the unique
+        // columns (number, source draft id) of the real list.
         let mut items = self.items()?;
         let number = request.investigation.number;
+        if let Some(source) = &request.investigation.source_draft_id {
+            if items.iter().any(|item| item.investigation.source_draft_id.as_ref() == Some(source)) {
+                return Err(AdapterError::DraftAlreadyPublished);
+            }
+        }
         if items.iter().any(|item| item.investigation.number == number) {
             return Err(AdapterError::NumberTaken(number));
         }
@@ -224,6 +239,23 @@ pub(crate) mod tests {
         let error = publish(&store, &investigation(56, 2026)).unwrap_err();
         assert!(matches!(error, AdapterError::NumberTaken(n) if n.to_string() == "056-2026"));
         assert_eq!(store.list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_draft_is_published_at_most_once() {
+        let store = store();
+        let first = investigation(56, 2026).with_source_draft("d-1");
+        publish(&store, &first).unwrap();
+        let retry = investigation(57, 2026).with_source_draft("d-1");
+        let error = publish(&store, &retry).unwrap_err();
+        assert!(matches!(error, AdapterError::DraftAlreadyPublished));
+        assert_eq!(store.list().unwrap().len(), 1, "no second list item");
+        assert_eq!(store.highest_number_in_year(2026).unwrap().unwrap().to_string(), "056-2026", "no number used");
+
+        let found = store.find_by_source_draft("d-1").unwrap().unwrap();
+        assert_eq!(found.investigation.number.to_string(), "056-2026");
+        assert_eq!(store.find_by_source_draft("d-2").unwrap(), None);
+        publish(&store, &investigation(57, 2026).with_source_draft("d-2")).unwrap();
     }
 
     #[test]

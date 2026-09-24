@@ -25,6 +25,13 @@ pub struct Investigation {
     /// The event chronology: operations-log rows in the operator's order.
     pub rows: Vec<LogRow>,
     pub preliminary_check_url: String,
+    /// The draft this investigation was created from. Publishers enforce that
+    /// one draft creates at most one investigation (see
+    /// `InvestigationPublisher::publish`), which makes completion idempotent.
+    /// `None` only for investigations that did not come from a draft
+    /// (e.g. demo history).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_draft_id: Option<String>,
 }
 
 impl Investigation {
@@ -58,13 +65,20 @@ impl Investigation {
             });
 
         match activity {
-            Some(activity) if errors.is_empty() => Ok(Self { number, activity, sections, rows, preliminary_check_url }),
+            Some(activity) if errors.is_empty() => {
+                Ok(Self { number, activity, sections, rows, preliminary_check_url, source_draft_id: None })
+            }
             _ => Err(errors),
         }
     }
 
     pub fn with_number(mut self, number: InvestigationNumber) -> Self {
         self.number = number;
+        self
+    }
+
+    pub fn with_source_draft(mut self, draft_id: &str) -> Self {
+        self.source_draft_id = Some(draft_id.to_owned());
         self
     }
 }

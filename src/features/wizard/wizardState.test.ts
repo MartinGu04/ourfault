@@ -51,6 +51,19 @@ describe('activity and technical sections', () => {
     expect(state.fieldErrors).toEqual([{ field: 'activityName', code: 'required' }]);
   });
 
+  it('keeps partially filled times as typed (drafts are never blocked)', () => {
+    const state = wizardReducer(initialWizardState, {
+      type: 'activityChanged',
+      patch: { plannedStart: '2026-09-20T08:00', actualEnd: '2026-09-19T08:00' },
+    });
+    expect(toContent(state).activity).toMatchObject({
+      plannedStart: '2026-09-20T08:00',
+      plannedEnd: '',
+      actualStart: '',
+      actualEnd: '2026-09-19T08:00',
+    });
+  });
+
   it('changing the activity status revalidates the actual end', () => {
     let state = wizardReducer(initialWizardState, {
       type: 'validationFailed',

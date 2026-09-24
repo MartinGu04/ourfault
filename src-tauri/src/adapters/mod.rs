@@ -27,6 +27,10 @@ pub enum AdapterError {
     /// The investigation number was taken by someone else in the meantime.
     #[error("investigation number {0} already exists")]
     NumberTaken(InvestigationNumber),
+    /// The draft being published already produced an investigation (see
+    /// [`InvestigationPublisher::find_by_source_draft`]). Nothing was written.
+    #[error("the draft was already published")]
+    DraftAlreadyPublished,
     /// The stored item changed since it was read (optimistic concurrency).
     #[error("the stored item was changed by someone else")]
     Conflict,
@@ -104,14 +108,25 @@ pub trait InvestigationPublisher: Send + Sync {
     /// Highest existing number in `year`, used to propose the next number.
     fn highest_number_in_year(&self, year: u16) -> Result<Option<InvestigationNumber>, AdapterError>;
 
+    /// The investigation created from draft `draft_id`, if any.
+    fn find_by_source_draft(&self, draft_id: &str) -> Result<Option<PublishedInvestigation>, AdapterError>;
+
     /// Publishes the investigation under `investigation.number`.
     ///
     /// Implementations MUST make this an atomic create-if-absent and return
     /// [`AdapterError::NumberTaken`] if the number already exists (for
     /// SharePoint: a unique-values column or an ETag-guarded counter item).
     /// The service retries with the next number, which is what makes
-    /// concurrent creation from several workstations safe. If the
-    /// destination cannot be reached, nothing may be written and
+    /// concurrent creation from several workstations safe.
+    ///
+    /// Implementations MUST also guarantee that one draft creates at most one
+    /// investigation: if an investigation with the same `source_draft_id`
+    /// exists, nothing is written and [`AdapterError::DraftAlreadyPublished`]
+    /// names it (for SharePoint: a unique-values column for the source draft
+    /// id). This is what makes completion idempotent, independently of the
+    /// draft's own "converted" mark.
+    ///
+    /// If the destination cannot be reached, nothing may be written and
     /// [`AdapterError::Unavailable`] is returned.
     fn publish(&self, request: PublishRequest<'_>) -> Result<PublishedInvestigation, AdapterError>;
 

@@ -279,7 +279,8 @@ mod tests {
         assert_eq!(review.issues, vec![], "{:?}", review.issues);
         assert_eq!(review.expected_number.unwrap().to_string(), "056-2026", "follows the seeded 055-2026");
 
-        let created = investigations.complete(&saved.id, saved.revision, &now(), "op").unwrap();
+        let created = investigations.complete(&saved.id, saved.revision, &now(), "op").unwrap().investigation;
+        assert_eq!(created.investigation.source_draft_id.as_deref(), Some(saved.id.as_str()));
         assert_eq!(created.investigation.number.to_string(), "056-2026");
         assert_eq!(created.investigation.rows, rows);
         assert_eq!(created.investigation.activity.systems.len(), 3);

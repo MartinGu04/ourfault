@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn completed_investigations_export_under_their_number() {
         let fixture = Fixture::new();
-        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap();
+        let published = fixture.service().complete(&fixture.draft().id, 1, &now(), "op").unwrap().investigation;
         let folder = temp_dir("export");
         let sink = LocalFolderExport::new(folder.clone());
         let service = ExportService::new(&fixture.sharepoint, &fixture.base.configuration, &fixture.base.drafts, &sink);
