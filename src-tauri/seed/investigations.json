@@ -1,0 +1,278 @@
+[
+  {
+    "number": "117-2025",
+    "date": "2025-12-18",
+    "system": {
+      "id": "system-3",
+      "name": "מערכת צ'ארלי"
+    },
+    "template": {
+      "name": "תחקיר כללי",
+      "title": "תחקיר אירוע",
+      "sections": [
+        "רקע",
+        "ממצאים",
+        "לקחים"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/3310",
+    "rows": [
+      {
+        "time": "21:04",
+        "from": "עמדה 5",
+        "to": "מוקד מבצעים",
+        "description": "התרעת שווא ממערכת צ'ארלי בגזרה המערבית."
+      },
+      {
+        "time": "21:10",
+        "from": "מוקד מבצעים",
+        "to": "תורן טכני",
+        "description": "התבקשה בדיקת רגישות החיישן."
+      }
+    ],
+    "createdAt": "2025-12-19T09:12:00+02:00",
+    "createdBy": "אבי כהן (הדגמה)",
+    "itemId": 40,
+    "url": "https://sharepoint.example.com/sites/charlie/Lists/Investigations/DispForm.aspx?ID=40"
+  },
+  {
+    "number": "118-2025",
+    "date": "2025-12-29",
+    "system": {
+      "id": "system-1",
+      "name": "מערכת אלפא"
+    },
+    "template": {
+      "name": "תחקיר מבצעי – תבנית אלפא",
+      "title": "תחקיר אירוע מבצעי",
+      "sections": [
+        "רקע",
+        "השתלשלות האירוע",
+        "ממצאים",
+        "לקחים",
+        "משימות להמשך"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/3342",
+    "rows": [
+      {
+        "time": "14:20",
+        "from": "עמדה 1",
+        "to": "מוקד מבצעים",
+        "description": "ניתוק רגעי בערוץ הנתונים של מערכת אלפא."
+      },
+      {
+        "time": "14:23",
+        "from": "מוקד מבצעים",
+        "to": "תורן טכני",
+        "description": "הערוץ חזר לפעולה לאחר אתחול."
+      }
+    ],
+    "createdAt": "2025-12-30T08:40:00+02:00",
+    "createdBy": "נועה לוי (הדגמה)",
+    "itemId": 41,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=41"
+  },
+  {
+    "number": "051-2026",
+    "date": "2026-08-27",
+    "system": {
+      "id": "system-2",
+      "name": "מערכת בראבו"
+    },
+    "template": {
+      "name": "תחקיר תקלה טכנית – תבנית בראבו",
+      "title": "תחקיר תקלה טכנית",
+      "sections": [
+        "תיאור התקלה",
+        "השפעה על הפעילות",
+        "ניתוח גורם שורש",
+        "פעולות מתקנות",
+        "מעקב ובקרה"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/4102",
+    "rows": [
+      {
+        "time": "09:15",
+        "from": "תורן טכני",
+        "to": "מוקד מבצעים",
+        "description": "תקלת חשמל בארון התקשורת של מערכת בראבו."
+      },
+      {
+        "time": "09:40",
+        "from": "מוקד מבצעים",
+        "to": "צוות אחזקה",
+        "description": "הוזמן צוות אחזקה לאתר."
+      },
+      {
+        "time": "10:05",
+        "from": "צוות אחזקה",
+        "to": "מוקד מבצעים",
+        "description": "הוחלף ספק כוח. המערכת חזרה לפעולה."
+      }
+    ],
+    "createdAt": "2026-08-27T13:05:00+03:00",
+    "createdBy": "אבי כהן (הדגמה)",
+    "itemId": 42,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=42"
+  },
+  {
+    "number": "052-2026",
+    "date": "2026-09-02",
+    "system": {
+      "id": "system-1",
+      "name": "מערכת אלפא"
+    },
+    "template": {
+      "name": "תחקיר מבצעי – תבנית אלפא",
+      "title": "תחקיר אירוע מבצעי",
+      "sections": [
+        "רקע",
+        "השתלשלות האירוע",
+        "ממצאים",
+        "לקחים",
+        "משימות להמשך"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/4188",
+    "rows": [
+      {
+        "time": "06:50",
+        "from": "עמדה 2",
+        "to": "מוקד מבצעים",
+        "description": "עיכוב בהעברת דיווחים במערכת אלפא."
+      },
+      {
+        "time": "07:05",
+        "from": "מוקד מבצעים",
+        "to": "קצין תורן",
+        "description": "דווח על עיכוב של כ-10 דקות."
+      }
+    ],
+    "createdAt": "2026-09-02T11:30:00+03:00",
+    "createdBy": "נועה לוי (הדגמה)",
+    "itemId": 43,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=43"
+  },
+  {
+    "number": "053-2026",
+    "date": "2026-09-08",
+    "system": {
+      "id": "system-2",
+      "name": "מערכת בראבו"
+    },
+    "template": {
+      "name": "תחקיר תקלה טכנית – תבנית בראבו",
+      "title": "תחקיר תקלה טכנית",
+      "sections": [
+        "תיאור התקלה",
+        "השפעה על הפעילות",
+        "ניתוח גורם שורש",
+        "פעולות מתקנות",
+        "מעקב ובקרה"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/4240",
+    "rows": [
+      {
+        "time": "16:30",
+        "from": "עמדה 4",
+        "to": "מוקד מבצעים",
+        "description": "התרעה על טמפרטורה חריגה בחדר השרתים."
+      },
+      {
+        "time": "16:45",
+        "from": "תורן טכני",
+        "to": "מוקד מבצעים",
+        "description": "הופעל מיזוג גיבוי. הטמפרטורה ירדה."
+      }
+    ],
+    "createdAt": "2026-09-09T08:15:00+03:00",
+    "createdBy": "נועה לוי (הדגמה)",
+    "itemId": 44,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=44"
+  },
+  {
+    "number": "054-2026",
+    "date": "2026-09-15",
+    "system": {
+      "id": "system-1",
+      "name": "מערכת אלפא"
+    },
+    "template": {
+      "name": "תחקיר מבצעי – תבנית אלפא",
+      "title": "תחקיר אירוע מבצעי",
+      "sections": [
+        "רקע",
+        "השתלשלות האירוע",
+        "ממצאים",
+        "לקחים",
+        "משימות להמשך"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/4301",
+    "rows": [
+      {
+        "time": "22:10",
+        "from": "עמדה 3",
+        "to": "מוקד מבצעים",
+        "description": "אובדן תצוגה במסך המרכזי של מערכת אלפא."
+      },
+      {
+        "time": "22:12",
+        "from": "מוקד מבצעים",
+        "to": "תורן טכני",
+        "description": "בוצע מעבר לעמדת גיבוי."
+      },
+      {
+        "time": "22:40",
+        "from": "תורן טכני",
+        "to": "מוקד מבצעים",
+        "description": "הוחלף כרטיס תצוגה. העמדה חזרה לפעולה."
+      }
+    ],
+    "createdAt": "2026-09-16T09:00:00+03:00",
+    "createdBy": "אבי כהן (הדגמה)",
+    "itemId": 45,
+    "url": "https://sharepoint.example.com/sites/alpha-ops/Lists/Investigations/DispForm.aspx?ID=45"
+  },
+  {
+    "number": "055-2026",
+    "date": "2026-09-21",
+    "system": {
+      "id": "system-2",
+      "name": "מערכת בראבו"
+    },
+    "template": {
+      "name": "תחקיר תקלה טכנית – תבנית בראבו",
+      "title": "תחקיר תקלה טכנית",
+      "sections": [
+        "תיאור התקלה",
+        "השפעה על הפעילות",
+        "ניתוח גורם שורש",
+        "פעולות מתקנות",
+        "מעקב ובקרה"
+      ]
+    },
+    "preliminaryCheckUrl": "https://checks.example.com/runs/4355",
+    "rows": [
+      {
+        "time": "11:00",
+        "from": "צוות אחזקה",
+        "to": "מוקד מבצעים",
+        "description": "עבודות תחזוקה יזומות במערכת בראבו."
+      },
+      {
+        "time": "11:35",
+        "from": "צוות אחזקה",
+        "to": "מוקד מבצעים",
+        "description": "התגלה כבל פגום. הוחלף במקום."
+      }
+    ],
+    "createdAt": "2026-09-21T15:20:00+03:00",
+    "createdBy": "נועה לוי (הדגמה)",
+    "itemId": 46,
+    "url": "https://sharepoint.example.com/sites/bravo-tech/Lists/Investigations/DispForm.aspx?ID=46"
+  }
+]
