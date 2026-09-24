@@ -1,0 +1,62 @@
+{
+  "systems": [
+    { "id": "system-1", "name": "מערכת אלפא", "active": true, "distributionList": ["alpha-ops@example.com", "ops-center@example.com"] },
+    { "id": "system-2", "name": "מערכת בטא", "active": true, "distributionList": ["beta-ops@example.com", "ops-center@example.com"] },
+    { "id": "system-3", "name": "מערכת גמא", "active": true, "distributionList": ["gamma-tech@example.com"] },
+    { "id": "system-4", "name": "מערכת דלתא", "active": false, "distributionList": ["delta-archive@example.com"] }
+  ],
+  "stations": [
+    { "id": "station-1", "name": "תחנת אורן", "active": true },
+    { "id": "station-2", "name": "תחנת ברוש", "active": true },
+    { "id": "station-3", "name": "תחנת גפן", "active": true },
+    { "id": "station-4", "name": "תחנת דקל", "active": false }
+  ],
+  "sections": [
+    {
+      "id": "section-1",
+      "name": "שיבוץ תחנות",
+      "active": true,
+      "mode": "repeating",
+      "fields": [
+        { "id": "f1", "label": "כותרת 1", "kind": "text", "required": true, "active": true },
+        { "id": "f2", "label": "כותרת 2", "kind": "text", "required": false, "active": true },
+        { "id": "f3", "label": "תחנה לוויינית", "kind": "station", "required": true, "active": true }
+      ]
+    },
+    {
+      "id": "section-2",
+      "name": "פרטי כלים",
+      "active": true,
+      "mode": "repeating",
+      "fields": [
+        { "id": "f1", "label": "כותרת 1", "kind": "text", "required": true, "active": true },
+        { "id": "f2", "label": "כותרת 2", "kind": "text", "required": false, "active": true },
+        { "id": "f3", "label": "מס׳ זנב", "kind": "text", "required": true, "active": true },
+        { "id": "f4", "label": "מס׳ קרון", "kind": "text", "required": false, "active": true },
+        { "id": "f5", "label": "מקטע", "kind": "singleSelect", "required": false, "active": true, "options": ["מקטע א", "מקטע ב", "מקטע ג"] }
+      ]
+    },
+    {
+      "id": "section-3",
+      "name": "תנאי ביצוע",
+      "active": true,
+      "mode": "single",
+      "fields": [
+        { "id": "f1", "label": "מספר משתתפים", "kind": "number", "required": true, "active": true },
+        { "id": "f2", "label": "תקלת תקשורת", "kind": "boolean", "required": true, "active": true },
+        { "id": "f3", "label": "סוגי תקלות", "kind": "multiSelect", "required": false, "active": true, "options": ["חומרה", "תוכנה", "תקשורת", "נוהל"] },
+        { "id": "f4", "label": "מערכת מושפעת", "kind": "system", "required": false, "active": true },
+        { "id": "f5", "label": "הערות", "kind": "text", "required": false, "active": true }
+      ]
+    }
+  ],
+  "mail": {
+    "subject": "תחקיר למשימה \"{{ACTIVITY_NAME}}\" - {{SYSTEMS}}",
+    "body": "היי,\n\nמצורף בזאת תחקיר למשימת \"{{ACTIVITY_NAME}}\" על מערכת/מערכות \"{{SYSTEMS}}\".\n\n{{INVESTIGATION_LINK}}\n\nבברכה,",
+    "linkText": "תחקיר"
+  },
+  "publication": {
+    "siteUrl": "https://sharepoint.example.com/sites/investigations",
+    "list": "Investigations"
+  }
+}

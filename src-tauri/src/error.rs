@@ -19,7 +19,15 @@ pub enum AppError {
         code: &'static str,
     },
     NotFound,
-    /// The current user may not perform this action.
+    /// The item changed in the meantime (`changed`) or can no longer be
+    /// changed (`draft_converted`). Nothing was written.
+    Conflict {
+        code: &'static str,
+    },
+    /// A shared destination (SharePoint, network folder) is unreachable.
+    /// Nothing was published and no number was allocated.
+    Unavailable,
+    /// The current work mode does not allow this action.
     Forbidden,
     /// Anything unexpected. Details are in the log only.
     Internal,
@@ -43,7 +51,14 @@ impl AppError {
 
 impl From<AdapterError> for AppError {
     fn from(error: AdapterError) -> Self {
-        AppError::internal("adapter", &error)
+        match error {
+            AdapterError::Conflict => AppError::Conflict { code: "changed" },
+            AdapterError::Unavailable(_) => {
+                crate::log_internal("destination unavailable", &error);
+                AppError::Unavailable
+            }
+            AdapterError::NumberTaken(_) | AdapterError::Storage(_) => AppError::internal("adapter", &error),
+        }
     }
 }
 
@@ -62,6 +77,12 @@ mod tests {
     fn serialises_to_stable_codes_without_details() {
         let storage = AppError::from(AdapterError::Storage("C:\\Users\\secret\\file.json: denied".into()));
         assert_eq!(serde_json::to_value(storage).unwrap(), json!({ "kind": "internal" }));
+
+        let offline = AppError::from(AdapterError::Unavailable("\\\\server\\share unreachable".into()));
+        assert_eq!(serde_json::to_value(offline).unwrap(), json!({ "kind": "unavailable" }));
+
+        let conflict = AppError::from(AdapterError::Conflict);
+        assert_eq!(serde_json::to_value(conflict).unwrap(), json!({ "kind": "conflict", "code": "changed" }));
 
         let paste = AppError::from(PasteError::TooFewColumns);
         assert_eq!(serde_json::to_value(paste).unwrap(), json!({ "kind": "paste", "code": "too_few_columns" }));

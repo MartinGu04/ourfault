@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-investigation"
+description = "Enables the get_investigation command without any pre-configured scope."
+commands.allow = ["get_investigation"]
+
+[[permission]]
+identifier = "deny-get-investigation"
+description = "Denies the get_investigation command without any pre-configured scope."
+commands.deny = ["get_investigation"]

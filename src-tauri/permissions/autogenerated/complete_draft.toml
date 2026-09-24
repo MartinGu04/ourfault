@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-complete-draft"
+description = "Enables the complete_draft command without any pre-configured scope."
+commands.allow = ["complete_draft"]
+
+[[permission]]
+identifier = "deny-complete-draft"
+description = "Denies the complete_draft command without any pre-configured scope."
+commands.deny = ["complete_draft"]
