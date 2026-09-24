@@ -27,8 +27,10 @@ export function toAppError(value: unknown): AppError {
         ? { kind: 'validation', errors: value.errors }
         : { kind: 'internal' };
     case 'paste':
-      return typeof value.code === 'string' ? { kind: 'paste', code: value.code } : { kind: 'internal' };
+    case 'conflict':
+      return typeof value.code === 'string' ? { kind: value.kind, code: value.code } : { kind: 'internal' };
     case 'notFound':
+    case 'unavailable':
     case 'forbidden':
     case 'internal':
       return { kind: value.kind };
@@ -57,21 +59,44 @@ const FIELD_MESSAGES: Record<string, string> = {
   unsupported_scheme: `הכתובת צריכה להתחיל ב-${ltr('https://')} או ב-${ltr('http://')}`,
   missing_host: 'בכתובת חסר שם שרת',
   credentials_not_allowed: 'אין לכלול שם משתמש או סיסמה בכתובת',
-  system_inactive: 'המערכת שנבחרה אינה פעילה',
+  system_inactive: 'אחת המערכות שנבחרו אינה פעילה',
+  unknown_system: 'אחת המערכות שנבחרו אינה קיימת',
+  invalid_datetime: 'יש להזין תאריך ושעה תקינים',
+  end_before_start: 'זמן הסיום מוקדם מזמן ההתחלה',
+  invalid_value: 'ערך לא תקין',
+  unknown_option: 'הערך אינו מופיע ברשימת האפשרויות',
+  unknown_station: 'התחנה שנבחרה אינה קיימת',
+  station_inactive: 'התחנה שנבחרה אינה פעילה. בחרו תחנה אחרת.',
+  system_not_involved: 'יש לבחור אחת מהמערכות המופעלות בפעילות',
+  single_record: 'בסעיף זה יש רשומה אחת בלבד',
+  unknown_field: 'השדה אינו קיים עוד. רעננו את המסך ונסו שוב.',
+  duplicate_label: 'כבר קיים שדה בשם זה בסעיף',
+  unknown_placeholder: 'התבנית מכילה שדה לא מוכר. ניתן להשתמש רק בשדות שברשימה.',
+  unclosed_placeholder: `שדה בתבנית לא נסגר. כל שדה נכתב כך: ${ltr('{{ACTIVITY_NAME}}')}`,
+  single_line: 'הנושא חייב להיות בשורה אחת',
+  no_recipients: 'לא הוגדרו נמענים לאף אחת מהמערכות בתחקיר. מנהל צריך להגדיר רשימת תפוצה.',
+  confirmation_required: 'יש לאשר את ייצוא הטיוטה',
+  draft_too_large: 'הטיוטה גדולה מדי',
+  invalid_draft_id: 'הטיוטה המבוקשת לא נמצאה',
   no_rows: 'יש להדביק לפחות שורה אחת מיומן המבצעים',
   too_many_rows: 'ניתן לכלול עד 500 שורות בתחקיר',
   row_too_long: 'אחת השורות ארוכה מדי (עד 2,000 תווים בכל שדה)',
   empty_row: 'אחת השורות ריקה. מלאו אותה או הסירו אותה.',
   invalid_email: 'אחת הכתובות אינה כתובת דוא״ל תקינה',
   invalid_characters: `השם מכיל תווים שאינם מותרים: ${ltr('/ \\ : * ? " < > | # %')}`,
-  duplicate_name: 'כבר קיימת מערכת בשם זה',
-  invalid_number: `מספר תחקיר לא תקין. יש להזין מספר כמו ${ltr('056-2026')}`,
+  duplicate_name: 'השם כבר קיים',
+  invalid_number: 'יש להזין מספר, לדוגמה 12 או 3.5',
 };
 
 /** Field-specific wording where the generic message would be misleading. */
 const FIELD_OVERRIDES: Record<string, Record<string, string>> = {
   sharepointSiteUrl: { unsupported_scheme: `כתובת האתר חייבת להתחיל ב-${ltr('https://')}` },
-  systemId: { required: 'יש לבחור מערכת' },
+  systemIds: { required: 'יש לבחור לפחות מערכת אחת' },
+  activityType: { required: 'יש לבחור סוג פעילות' },
+  activityStatus: { required: 'יש לבחור סטטוס פעילות' },
+  nightActivity: { required: 'יש לסמן כן או לא' },
+  seniorStaffing: { required: 'יש לסמן כן או לא' },
+  number: { invalid_number: `מספר תחקיר לא תקין. יש להזין מספר כמו ${ltr('056-2026')}` },
 };
 
 export function fieldMessage(error: FieldError): string {
@@ -98,8 +123,14 @@ export function errorMessage(error: unknown): string {
       return PASTE_MESSAGES[appError.code] ?? 'לא ניתן לקרוא את הטקסט שהודבק.';
     case 'notFound':
       return 'הפריט המבוקש לא נמצא.';
+    case 'conflict':
+      return appError.code === 'draft_converted'
+        ? 'הטיוטה כבר הפכה לתחקיר ואינה ניתנת לעריכה.'
+        : 'הנתונים עודכנו בינתיים בעמדה אחרת. רעננו את המסך ונסו שוב.';
+    case 'unavailable':
+      return 'לא ניתן להתחבר ליעד הפרסום. התחקיר לא נוצר ולא הוקצה לו מספר. הטיוטה שמורה – נסו שוב מאוחר יותר.';
     case 'forbidden':
-      return 'אין לך הרשאה לבצע פעולה זו.';
+      return 'פעולה זו זמינה במצב מנהל בלבד.';
     case 'internal':
       return 'אירעה שגיאה בלתי צפויה. נסו שוב, ואם הבעיה חוזרת פנו לתמיכה.';
   }

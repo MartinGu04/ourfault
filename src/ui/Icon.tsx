@@ -19,6 +19,14 @@ const PATHS = {
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
   cloud: 'M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z',
+  file: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  up: 'M6 15l6-6 6 6',
+  down: 'M6 9l6 6 6-6',
+  shield: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 20a7 7 0 0 1 14 0',
+  swap: 'M7 7h11l-3-3M17 17H6l3 3',
+  draft: 'M5 4h9l5 5v11H5zM9 13h6M9 17h3',
 } as const;
 
 export type IconName = keyof typeof PATHS;

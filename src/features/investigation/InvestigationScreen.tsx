@@ -5,16 +5,19 @@ import { api } from '../../api/client';
 import { errorMessage } from '../../api/errors';
 import type { InvestigationNumber } from '../../api/types';
 import { formatTimestamp } from '../../lib/format';
+import { INVESTIGATION_STATUS_LABELS } from '../../lib/labels';
 import { useResource } from '../../lib/useResource';
 import { Banner, Button, Ltr, Spinner } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { CopyButton } from './CopyButton';
 import { DistributionDialog } from './DistributionDialog';
-import { InvestigationDocument } from './InvestigationDocument';
+import { DocumentViewer } from './DocumentViewer';
+import { ExportPdfButton, type Notice } from './ExportPdfButton';
 
 export function InvestigationScreen({ number, navigation }: { number: InvestigationNumber; navigation: Navigation }) {
-  const [investigation] = useResource(() => api.findInvestigation(number));
+  const [details, reload] = useResource(() => api.getInvestigation(number));
   const [distributing, setDistributing] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   return (
     <div className="page">
@@ -22,34 +25,52 @@ export function InvestigationScreen({ number, navigation }: { number: Investigat
         <Button variant="subtle" icon="back" onClick={navigation.goHome}>
           דף הבית
         </Button>
-        {investigation.status === 'ready' && (
-          <Button icon="mail" onClick={() => setDistributing(true)}>
-            הפץ במייל
-          </Button>
+        {details.status === 'ready' && (
+          <div className="page-toolbar-actions">
+            <ExportPdfButton target={{ kind: 'investigation', number }} onNotice={setNotice} />
+            <Button variant="primary" icon="mail" onClick={() => setDistributing(true)}>
+              {details.data.investigation.lifecycle.status === 'distributed' ? 'הפצה חוזרת' : 'הפצה במייל'}
+            </Button>
+          </div>
         )}
       </div>
 
-      {investigation.status === 'loading' && <Spinner label="טוען תחקיר" />}
-      {investigation.status === 'error' && <Banner tone="error">{errorMessage(investigation.error)}</Banner>}
-      {investigation.status === 'ready' && (
+      {notice && <Banner tone={notice.tone}>{notice.content}</Banner>}
+      {details.status === 'loading' && <Spinner label="טוען תחקיר" />}
+      {details.status === 'error' && <Banner tone="error">{errorMessage(details.error)}</Banner>}
+      {details.status === 'ready' && (
         <>
           <div className="storage-info">
             <Icon name="cloud" />
-            <span className="storage-label">פריט SharePoint (סימולציה)</span>
-            <Ltr className="url">{investigation.data.url}</Ltr>
-            <CopyButton value={investigation.data.url} label="העתקה" />
-            <span className="storage-meta">
-              נוצר {formatTimestamp(investigation.data.createdAt)} · {investigation.data.createdBy}
+            <span className="storage-label">
+              {details.data.investigation.publication.destination === 'sharePoint'
+                ? 'פריט SharePoint (סימולציה)'
+                : 'תיקייה משותפת'}
             </span>
-            <p className="storage-note">
-              הנתונים מוצגים כפי שהם שמורים ב-SharePoint, שבו התחקיר נערך ומנוהל. בסביבה האמיתית הכפתור "פתח תחקיר" יפתח את הטופס ישירות ב-SharePoint.
-            </p>
+            <Ltr className="url">{details.data.investigation.publication.url}</Ltr>
+            <CopyButton value={details.data.investigation.publication.url} label="העתקה" />
+            <ul className="lifecycle" aria-label="היסטוריית סטטוס">
+              {details.data.investigation.lifecycle.history.map((event, index) => (
+                <li key={index}>
+                  <strong>{INVESTIGATION_STATUS_LABELS[event.status]}</strong> {formatTimestamp(event.at)} ·{' '}
+                  <bdi>{event.by}</bdi>
+                </li>
+              ))}
+            </ul>
           </div>
-          <InvestigationDocument investigation={investigation.data} />
+          <DocumentViewer document={details.data.document} />
         </>
       )}
 
-      {distributing && <DistributionDialog number={number} onClose={() => setDistributing(false)} />}
+      {distributing && (
+        <DistributionDialog
+          number={number}
+          onClose={() => {
+            setDistributing(false);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }

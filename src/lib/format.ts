@@ -31,3 +31,4 @@ export function countLabel(count: number, one: string, many: string): string {
 
 export const rowsLabel = (count: number) => countLabel(count, 'שורה אחת', 'שורות');
 export const recipientsLabel = (count: number) => countLabel(count, 'נמען אחד', 'נמענים');
+export const issuesLabel = (count: number) => countLabel(count, 'פריט אחד', 'פריטים');

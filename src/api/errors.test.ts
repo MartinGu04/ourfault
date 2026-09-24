@@ -4,10 +4,12 @@ import { ApiError, errorMessage, fieldErrors, toAppError } from './errors';
 
 describe('toAppError', () => {
   it('accepts well-formed backend errors', () => {
-    expect(toAppError({ kind: 'validation', errors: [{ field: 'systemId', code: 'required' }] })).toEqual({
+    expect(toAppError({ kind: 'validation', errors: [{ field: 'systemIds', code: 'required' }] })).toEqual({
       kind: 'validation',
-      errors: [{ field: 'systemId', code: 'required' }],
+      errors: [{ field: 'systemIds', code: 'required' }],
     });
+    expect(toAppError({ kind: 'conflict', code: 'changed' })).toEqual({ kind: 'conflict', code: 'changed' });
+    expect(toAppError({ kind: 'unavailable' })).toEqual({ kind: 'unavailable' });
     expect(toAppError({ kind: 'paste', code: 'too_few_columns' })).toEqual({ kind: 'paste', code: 'too_few_columns' });
   });
 
@@ -23,14 +25,20 @@ describe('messages', () => {
     const error = new ApiError({
       kind: 'validation',
       errors: [
-        { field: 'systemId', code: 'required' },
+        { field: 'systemIds', code: 'required' },
         { field: 'preliminaryCheckUrl', code: 'unsupported_scheme' },
       ],
     });
     expect(fieldErrors(error)).toEqual({
-      systemId: 'יש לבחור מערכת',
+      systemIds: 'יש לבחור לפחות מערכת אחת',
       preliminaryCheckUrl: 'הכתובת צריכה להתחיל ב-\u2066https://\u2069 או ב-\u2066http://\u2069',
     });
+  });
+
+  it('explains an unreachable destination without claiming success', () => {
+    const message = errorMessage(new ApiError({ kind: 'unavailable' }));
+    expect(message).toContain('לא נוצר');
+    expect(message).toContain('הטיוטה שמורה');
   });
 
   it('never exposes raw error text', () => {

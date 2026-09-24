@@ -1,4 +1,4 @@
-// Step 1: the operator copies the relevant rows in Excel and pastes them here,
+// Step 3 (event chronology): the operator copies the relevant rows in Excel and pastes them here,
 // then reviews them. Nothing is inferred: every row shown is a row that was
 // pasted, and rows change only when the operator edits or removes them.
 

@@ -5,21 +5,24 @@ read before changing the code.
 
 ## Goals and non-goals
 
-OurFault creates investigations from operations-log rows:
+OurFault creates investigations of **activities**. An activity (mission,
+experiment, training or other) involves one or more systems. An
+investigation records the activity details, administrator-configured
+technical sections, the event chronology pasted from the operations log, and
+a link to the preliminary checks. It is then published (SharePoint in
+production) and distributed by e-mail.
 
-**Select rows in Excel → Copy → Paste into OurFault → Review → choose system → paste checks link → preview → create**
-
-- **Input is operator-controlled.** The operator selects and copies the rows
-  in Excel. OurFault never opens or reads a workbook, and never infers,
-  scores or auto-selects rows. It parses exactly what was pasted, deterministically,
-  and the operator reviews every row (edit, remove, paste more) before continuing.
-- **SharePoint is the destination and the source of truth.** An investigation
-  is created as an editable SharePoint list item (web form). Once it exists,
-  it is read and edited in SharePoint. OurFault keeps no copy of its own and
-  exports no PDF or DOCX.
-- One desktop process (Tauri 2). No web server, no background services.
-- SharePoint and e-mail are **mocks** that write local JSON files and never
-  touch the network. All data is fictional.
+- **Input is operator-controlled.** Chronology rows are selected and copied
+  in Excel by the operator. OurFault never opens or reads a workbook, and
+  never infers, scores or auto-selects rows. Parsing is deterministic, and the
+  operator reviews every row (edit, remove, paste more).
+- **The structured investigation is the source of truth.** HTML and PDF are
+  outputs rendered from it; the model is never collapsed into markup.
+- **External systems stay behind interfaces.** SharePoint, a shared folder,
+  Outlook and shared draft storage are adapters. In this PoC they are local
+  mocks that never touch the network.
+- One desktop process (Tauri 2). No web server, no background services, no
+  remote database, no AI, no analytics. All data is fictional.
 
 ## Layers
 
@@ -27,198 +30,309 @@ OurFault creates investigations from operations-log rows:
 React UI (src/)                       Hebrew, RTL, presentation and wizard state only
    │  typed calls in src/api/client.ts
    ▼  Tauri IPC (allow-listed commands)
-commands.rs                           input/output translation, auth checks
+commands.rs                           input/output translation; admin commands via AppState::admin
    ▼
-services/                             use cases: numbering, create, distribute, admin
+services/                             use cases: drafts, review/complete, search, distribution, export, administration
    ▼
-domain/                               pure types and rules, no I/O (incl. paste parsing)
+domain/          render/              pure types and rules │ pure output: DocumentView → HTML / PDF
    ▲
-adapters/  (implement traits in adapters/mod.rs)
-   ├─ mock_sharepoint.rs     SharePointAdapter   → local JSON "list"
-   ├─ mock_distribution.rs   DistributionAdapter → local "outbox" JSON
-   └─ json_system_repository.rs  SystemRepository → local JSON
-state.rs                              composition root: picks the adapter implementations
+adapters/  (traits in adapters/mod.rs)
+   ├─ local_configuration.rs  ConfigurationRepository → configuration.json (revisioned)
+   ├─ local_drafts.rs         DraftRepository         → drafts/<id>.json (revisioned)
+   ├─ mock_sharepoint.rs      InvestigationPublisher  → local JSON "list" (default)
+   ├─ shared_folder.rs        InvestigationPublisher  → <root>/<year>/<number> - <name>.pdf + .json
+   ├─ mock_distribution.rs    DistributionAdapter     → local "outbox" JSON
+   └─ local_export.rs         ExportSink              → Downloads\OurFault
+state.rs                              composition root, work mode, access policy
 ```
 
-**All business rules live in Rust.** That is where the trust boundary is, and
-where file-system and (later) network access must happen anyway. The frontend
-keeps only UI state (`features/wizard/wizardState.ts`, a pure reducer) and
-formatting. There is exactly one source for each rule:
+**All business rules live in Rust.** The frontend keeps only UI state
+(`features/wizard/wizardState.ts`, a pure reducer; `autosave.ts`, a pure
+scheduler) and formatting. One source for each rule:
 
 | Rule | Location |
 | --- | --- |
-| Parsing pasted rows, validating reviewed rows | `domain/log_rows.rs` |
+| Activity: required fields, "Other" description, systems, time ordering | `domain/activity.rs` |
+| Technical sections: definitions, admin validation, typed values, required fields, station/system references | `domain/sections.rs` |
+| Building a complete investigation from a draft | `domain/investigation.rs` |
+| Draft content limits, draft id safety | `domain/draft.rs` |
+| Status lifecycle (Draft → Completed → Distributed) | `domain/lifecycle.rs` |
+| Mail template placeholders, recipient union | `domain/mail.rs` |
+| Setup checklist | `domain/configuration.rs` |
+| Paste parsing and row validation (unchanged from PR #1) | `domain/log_rows.rs` |
 | Number format, parsing, incrementing | `domain/investigation_number.rs` |
-| Link, e-mail and text validation | `domain/validation.rs` |
-| Building an investigation (active system, rows, link, template snapshot) | `domain/investigation.rs` |
-| System configuration validation | `domain/system.rs` |
-| Number allocation with conflict retry | `services/investigations.rs` |
-| Distribution message content | `domain/distribution.rs` |
+| Number allocation with conflict retry; draft conversion | `services/investigations.rs` |
+| Document wording (Hebrew) for preview, HTML and PDF | `render/document.rs`, `render/labels.rs` |
 
-Errors cross IPC only as stable codes (`{kind: "validation", errors: [{field, code}]}`,
-`{kind: "paste", code}`). The UI maps codes to Hebrew text in
-`src/api/errors.ts`. Technical details stay in the log (`log_internal`).
+Errors cross IPC only as stable codes (`validation` with `{field, code}`,
+`paste`, `conflict`, `unavailable`, `notFound`, `forbidden`, `internal`). The
+UI maps codes to Hebrew in `src/api/errors.ts`; technical details stay in the
+log.
 
-## Project structure
+## Investigation model
 
 ```
-src/                     React + TypeScript (strict)
-  api/                   IPC types, the typed client, error → Hebrew messages
-  features/home          home screen: new investigation, search, recent list
-  features/wizard        paste & review, details, preview, success
-  features/investigation shared investigation view, mock SharePoint item screen, distribution dialog
-  features/admin         system administration
-  ui/                    small shared controls (buttons, fields, dialog, icons)
-  styles/                design tokens and CSS (logical properties → native RTL)
-src-tauri/
-  src/                   Rust application (see layers above)
-  seed/                  fictional systems and past investigations (first-run seed)
-  capabilities/          the single Tauri capability (explicit command allow-list)
-demo/                    fictional operations log to copy from + matching paste text
-scripts/                 generator for the demo files
+Investigation
+├─ number               056-2026 (allocated on completion only)
+├─ activity
+│  ├─ name, activityType (Mission | Experiment | Training | Other{description})
+│  ├─ systems[]         snapshot {id, name}; one or more, no "primary"
+│  ├─ status            Active | Completed        (activity status)
+│  ├─ planned {start, end}, actual {start, end?}
+│  └─ nightActivity, seniorStaffing
+├─ sections[]           snapshot of each configured section + typed cells
+├─ rows[]               event chronology (pasted operations-log rows)
+└─ preliminaryCheckUrl
+PublishedInvestigation = Investigation + Lifecycle + Publication{destination, url, reference}
 ```
 
-## Pasting rows
+Rules worth knowing:
 
-When Excel copies a selection, it puts it on the clipboard as tab-separated
-text: CRLF between rows, and quotes around cells that contain line breaks.
+- Planned start/end and actual start are required. The actual end is
+  required only once the activity status is *Completed*; while it is
+  *Active* it may be empty. Each end must not precede its start; planned and
+  actual windows need not match.
+- The yes/no questions must be answered explicitly (nothing defaults to "no").
+- A `System` field in a technical section may only reference one of the
+  investigation's own systems. A `Station` field must reference an active
+  station.
+- Completed investigations store snapshots (system and station names, section
+  labels and types), so renaming or deactivating configuration never
+  rewrites history.
+- Enums carry no display text; labels are a UI or rendering concern.
 
-1. The UI listens for the `paste` event on the first wizard step. It uses the
-   clipboard's plain-text data only, and only when the operator pastes. The
-   app has **no clipboard permission** and never reads the clipboard on its own.
-2. The text goes to the `parse_pasted_rows` command. `domain/log_rows.rs`:
-   - splits rows and cells, honouring Excel's quoting for multi-line cells;
-   - drops completely blank lines;
-   - if the first line holds the column titles (English or Hebrew, any order),
-     uses it to locate the columns and skips it; otherwise takes columns **by
-     position** in the log's order: Time, From, To, Description. Further
-     columns (such as Event type) are not part of an investigation;
-   - rejects pastes that are empty, too large (1 MB), have fewer than four
-     columns, more than 500 rows, or cells over 2,000 characters;
-   - removes control characters. Values are otherwise kept exactly as pasted.
-3. The rows appear in a review table. The operator can remove rows, edit a
-   row, paste more rows (which are appended) or clear everything. Nothing is
-   reordered or filtered automatically.
-4. On preview and create, the reviewed rows are sent with the draft and
-   validated again in Rust (`validate_rows`).
+### Lifecycle
 
-The Excel reading and fill-colour detection from the first iteration have
-been removed completely, along with the file dialog.
+`Draft → Completed → Distributed (→ Distributed again)`. A draft lives in the
+draft repository and has no number. Completion allocates the number and
+publishes. Distribution appends to the history; `completedAt` and the first
+`distributedAt` are kept, and nothing moves backwards. Published
+investigations are edited in SharePoint, not in OurFault.
 
-## SharePoint model
+## Technical sections (section builder)
 
-- Each system has a SharePoint destination: a site URL and a **list**.
-  Investigations are items in that list, and each item's form is where the
-  investigation is completed and edited.
-- `SharePointAdapter::create_investigation` creates the item and returns it
-  with its item id and URL (the mock returns
-  `{site}/Lists/{list}/DispForm.aspx?ID={id}`).
-- After creation, every OurFault view (recent list, search, the
-  "פתח תחקיר" screen, distribution) reads back from the adapter. In the PoC,
-  "פתח תחקיר" shows the mock item inside the app, since the URL is fictional.
-  With a real adapter it should open the item in SharePoint (see below).
-- The investigation carries a snapshot of the system name and template, so
-  later configuration changes never alter existing investigations.
+A controlled builder, not a document editor. A section has a name, an order
+(its position), an active flag, a mode (*single record* or *repeating rows*)
+and ordered fields. A field has a label, an order, *required*, *active* and a
+type from a deliberately small set: Text, Number, Boolean, Single Select,
+Multi Select, Station, System. Select fields carry their options.
 
-## Persistence
+- Admins rename and reorder sections (move up/down), add, rename, reorder,
+  retype, deactivate or remove fields, and mark them required.
+- Removing a field removes it from the configuration only; completed
+  investigations keep their snapshot, and drafts simply ignore values of
+  unknown fields.
+- The seed contains the two real-world table layouts with placeholder labels
+  (`כותרת 1`, `כותרת 2`), in their required order
+  (`כותרת 1 | כותרת 2 | מס׳ זנב | מס׳ קרון | מקטע`). No label is referenced by
+  code; the real names are set during setup.
 
-Local JSON files in the per-user application data directory
-(`%APPDATA%\com.ourfault.desktop` on Windows; override with `OURFAULT_DATA_DIR`):
+## Drafts and autosave
 
-| File | Owner |
-| --- | --- |
-| `systems.json` | `JsonSystemRepository` |
-| `mock-sharepoint/investigations.json` | `MockSharePoint` (stands in for the SharePoint list) |
-| `mock-mail/outbox.json` | `MockDistribution` |
-
-Writes are atomic (temp file + rename). A corrupt file is reported, never
-silently overwritten; the UI then shows a startup error instead of crashing.
-In production, system configuration moves to shared storage behind the same
-trait, and investigations live only in SharePoint.
+- `DraftRepository` is the boundary; `LocalDraftRepository` (one JSON file per
+  draft) is the PoC. A shared implementation (network folder or SharePoint)
+  must keep the same contract.
+- Every save names the revision it edited. A mismatch is a `conflict`: the
+  write is refused and the UI stops autosaving instead of overwriting another
+  workstation's changes. The operator's in-memory work is kept.
+- Draft ids come from the webview and become file names, so they are
+  restricted to `[a-z0-9-]` and validated in the domain and the adapter.
+- The UI autosaves 800 ms after the last change, with at most one write in
+  flight (`features/wizard/autosave.ts`). An untouched new investigation is
+  never saved. The indicator shows *נשמר* / *שומר...* / *שגיאה בשמירה* (with
+  retry); leaving with unsaved changes asks first.
+- Completion (`services/investigations.rs::complete`): load the draft (must be
+  open and at the expected revision) → validate → allocate and publish →
+  **only then** mark the draft converted. If publishing fails, the draft is
+  untouched and no number is used. A converted draft cannot be completed
+  again. If marking it converted fails after a successful publication, the
+  investigation still exists and the failure is logged; the draft would then
+  remain in the list (known limitation).
 
 ## Investigation numbers
 
-`{running number}-{year}`, displayed with at least three digits (`001-2026`,
-`056-2026`, `1000-2026`). The running number restarts each calendar year.
+`{running number}-{year}`, at least three digits (`001-2026`, `056-2026`,
+`1000-2026`). The running number restarts each calendar year. The review step
+shows the *expected* number; the publisher allocates it:
 
-Uniqueness is **not** a UI concern:
+1. The service proposes the next number from the publisher's highest number.
+2. `InvestigationPublisher::publish` must be an atomic create-if-absent and
+   fail with `NumberTaken` (SharePoint: a unique column or ETag-guarded
+   counter; shared folder: `create_new` on the record file).
+3. On `NumberTaken` the service retries with a fresh number (bounded). The
+   success screen explains if the number changed.
 
-1. The wizard shows the *expected* next number (`peek_next_investigation_number`),
-   marked as automatically assigned.
-2. On creation, the service asks the adapter to `create_investigation` with a
-   candidate number. The adapter contract requires an **atomic create-if-absent**
-   that fails with `NumberTaken`.
-3. On `NumberTaken`, the service takes a fresh number from the backend and
-   retries (bounded). The success screen explains if the number changed.
+## Rendering and publishing
 
-For real SharePoint this maps to a list column with *Enforce unique values*
-(a duplicate insert fails and becomes `NumberTaken`), or an ETag-guarded counter
-item. `services/investigations.rs` has a test that simulates another
-workstation winning the race.
+```
+Investigation / Draft ──▶ DocumentView ──▶ HtmlRenderer ──▶ SharePoint rich-text body (mock)
+                                      └──▶ PdfRenderer  ──▶ export, shared-folder publisher
+```
+
+- `DocumentView` is a neutral list of labelled field groups and tables. The
+  in-app preview renders the same view, so preview, PDF and HTML never
+  disagree. Drafts get a `draftNotice` ("טיוטה — לא להפצה").
+- `HtmlRenderer` emits semantic, escaped, `dir="rtl"` HTML (`article`,
+  `section`, `dl`, `table/th[scope]`, `bdi` for left-to-right values). It is
+  never shown to operators.
+- The mock SharePoint list item carries **both** mappings a real adapter may
+  need: dashboard columns (`number`, `systems`, `activityName`, `date`,
+  `activityType`, `status`), the full structured investigation, and
+  `bodyHtml` for a single rich-text field.
+- An unreachable destination returns `unavailable`: nothing is written, no
+  number is allocated, the draft stays as it is. No offline synchronisation.
+
+### PDF
+
+PDF generation is a small in-house writer (`render/pdf/`): A4, right-to-left,
+field grids and tables with repeated headers and page breaks inside long
+cells, page numbers, and for drafts a banner plus a diagonal watermark on
+every page. Text is searchable/copyable (ToUnicode map).
+
+Options considered: a headless browser or WebView2 `PrintToPdf` (huge or
+Windows-GUI-only, not usable by a headless folder publisher, hard to test in
+CI); typesetting engines such as typst (very large); `printpdf`/`genpdf`
+(no right-to-left support, still need our own layout). The chosen approach
+adds two small, dependency-free crates: `ttf-parser` (glyph ids and metrics)
+and `unicode-bidi` (the Unicode Bidirectional Algorithm, to reorder mixed
+Hebrew/Latin/number lines). `miniz_oxide` (already in the dependency tree)
+compresses streams. The bundled font is Alef (SIL Open Font License,
+`src-tauri/assets/fonts/OFL.txt`), embedded in each PDF (~90 KB).
+Limitations: no complex shaping (not needed for Hebrew without niqqud), no
+kerning, no hyphenation.
+
+A draft can be exported only when the call carries `confirmIncomplete: true`,
+which the UI sends after the operator confirms *"התחקיר עדיין לא הושלם או
+הופץ. הקובץ שייווצר עלול להיות חלקי. האם להמשיך?"*. Files are written to
+`Downloads\OurFault` (never overwriting); the webview never supplies a path.
+A native "Save as" dialog can be added later by calling
+`tauri-plugin-dialog` from Rust only, without granting the webview any
+dialog permission.
+
+## Distribution
+
+One administrator-editable template (subject, body, link text) with
+`{{ACTIVITY_NAME}}`, `{{SYSTEMS}}`, `{{INVESTIGATION_NUMBER}}`,
+`{{INVESTIGATION_LINK}}`. Unknown placeholders are rejected when saving.
+Values are inserted as text (HTML-escaped in the HTML body) and never
+re-interpreted as placeholders. `{{INVESTIGATION_LINK}}` renders as a
+hyperlink whose text is the link text ("תחקיר"); the plain-text body writes
+the URL out. Recipients are the union of the involved systems' lists,
+de-duplicated (addresses are lower-cased on save).
+
+No sender or signature is added: the real `DistributionAdapter` is expected
+to send as the signed-in Outlook user, whose own signature applies. Any
+Outlook-specific automation belongs inside that adapter. Distribution
+records the new status; if the message was sent but recording failed, the UI
+says so instead of claiming full success.
+
+## Work modes (regular / admin)
+
+The entry screen offers **כניסה רגילה** and **מצב מנהל**. These are work
+modes, not accounts: there is no username or password, and choosing admin
+mode does not identify anyone. Structurally:
+
+- The mode is held in Rust (`AppState`), not only in React.
+- Administration services (`services/configuration.rs::Administration`)
+  require an `AdminGrant`, which only `AppState::admin()` can create, and only
+  in admin mode. Every admin command goes through it; regular mode gets
+  `forbidden` (tested in `state.rs`).
+- An `AccessPolicy` decides which modes may be entered. The PoC policy allows
+  admin mode unless `OURFAULT_ADMIN_MODE=disabled`. A real deployment
+  replaces it with environment permissions (e.g. a directory group of the
+  Windows user) without changing commands or UI.
+- Regular mode shows no admin screens; admin mode shows only configuration.
+- The Windows user name is recorded as the author of drafts and status
+  changes. It is informational, not an authentication mechanism.
+
+Initial setup and administration are the same screens over the same
+configuration. The setup checklist is computed from the current
+configuration (`Configuration::setup_status`), so it stays available and
+reflects later changes. Required items (an active system, a valid mail
+template, a publication target) gate completion, not draft saving.
+
+## Local data and migration
+
+Local JSON files in the per-user data directory
+(`%APPDATA%\com.ourfault.desktop`; override with `OURFAULT_DATA_DIR`):
+
+| File | Owner |
+| --- | --- |
+| `configuration.json` | `LocalConfigurationRepository` |
+| `drafts/<id>.json` | `LocalDraftRepository` |
+| `mock-sharepoint/investigations-v2.json` | `MockSharePoint` (stands in for the list) |
+| `mock-mail/outbox-v2.json` | `MockDistribution` |
+
+Every file carries `"schemaVersion": 2`. Writes are atomic (temp file +
+rename). A corrupt file, or one with another schema version, is reported and
+never overwritten; the UI then shows a startup error.
+
+**Migration from PR #1:** intentionally none. PR #1 data was fictional seed
+data in a different model (one system per investigation, per-system
+templates). The new layout uses new file names, so on first start the PR #1
+files (`systems.json`, `mock-sharepoint/investigations.json`,
+`mock-mail/outbox.json`) are left untouched and ignored, and fresh fictional
+data is seeded. Delete them, or the whole data directory, at will.
 
 ## Security boundaries
 
 | Concern | Measure |
 | --- | --- |
-| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 13 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
-| Input | Pasted text is untrusted. It is bounded in size, rows and cell length, and cleaned of control characters. Reviewed rows are re-validated in Rust on every preview and create. Admin configuration is validated in the domain layer. |
-| File system | The webview has no file access and never supplies paths; only Rust writes the app's own data files. |
-| Content injection | Pasted values and user input are rendered as React text only; there is no `dangerouslySetInnerHTML` and no `eval`. |
-| Network | No outbound requests anywhere. CSP `connect-src ipc: http://ipc.localhost`; verified in the real webview that `fetch` and `eval` are blocked. The navigation guard keeps the webview on the app origin. The preliminary-checks link is validated structurally (http/https, host, no credentials, ≤2048 chars), stored and shown with a *copy* button, never opened or fetched. |
-| Authorisation | Admin commands check the role in Rust (`require_admin`), not only in the UI. PoC role source: `OURFAULT_DEMO_ROLE`. |
+| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 29 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
+| Work modes | Admin operations require an `AdminGrant` created only by `AppState::admin()` in admin mode; the access policy can withhold admin mode entirely. |
+| Input | Pasted text is bounded and cleaned (as in PR #1). Draft content has size/row limits on every save. All content is re-validated in Rust on review and completion. Admin configuration is validated in the domain. |
+| File system | The webview never supplies paths. Draft ids are restricted to a safe alphabet; export and publication file names are sanitised (no separators, reserved characters or device names); exports never overwrite. |
+| Content injection | Values are rendered as React text only; no `dangerouslySetInnerHTML`, no `eval`. Generated HTML (SharePoint body, e-mail) escapes every value. |
+| Network | No outbound requests anywhere. CSP `connect-src ipc: http://ipc.localhost`. The navigation guard keeps the webview on the app origin. The preliminary-checks link is validated structurally and copied, never opened or fetched. |
+| Concurrency | Revision checks on configuration and drafts; atomic create-if-absent for investigation numbers. |
 | Errors | Only codes reach the UI; paths and library errors go to the log. |
 | Supply chain | Small dependency set, pinned by `Cargo.lock` / `package-lock.json`. CI uses only GitHub-owned actions. |
 
-## Decisions that deviate from the brief
-
-- **Systems cannot be deleted.** Only deactivation exists. Investigations keep
-  a snapshot of the system name and template, so history never dangles and
-  later template edits never rewrite past investigations.
-- **The preliminary-checks link is copied, not opened.** Opening an arbitrary
-  pasted URL from the app would be the network access the brief rules out.
-- **Admin role from an environment variable.** A login screen would be
-  throw-away work. The real source is the Windows identity plus a directory group.
-
 ## Replacing the mocks
 
-1. Implement the trait (`SharePointAdapter`, `DistributionAdapter`,
-   `SystemRepository`) in a new file under `src-tauri/src/adapters/`.
-   For SharePoint (e.g. via Microsoft Graph), `create_investigation` creates
-   the list item, maps the unique-number conflict to `NumberTaken`, and
-   returns the item's id and web URL.
+1. Implement the trait in a new file under `src-tauri/src/adapters/`:
+   `InvestigationPublisher` (SharePoint via Microsoft Graph: create the list
+   item, map the unique-number conflict to `NumberTaken` and connectivity
+   failures to `Unavailable`, return the item URL), `DraftRepository` and
+   `ConfigurationRepository` (shared storage, honouring revisions),
+   `DistributionAdapter` (Outlook, as the signed-in user).
 2. Construct it in `Backend::open` (`state.rs`).
-3. Keep secrets (Graph tokens, SMTP credentials) in Rust, loaded from the OS
-   credential store or managed configuration, never in the frontend or source.
-4. Perform network access in Rust; the webview CSP stays closed.
-5. To open an item in SharePoint, add a narrow Rust command that opens a URL
-   **only if it belongs to a configured SharePoint site** (an allowlist taken
-   from system configuration). Do not add a general "open URL" capability.
+3. Keep secrets in Rust (OS credential store or managed configuration),
+   never in the frontend or source. Perform network access in Rust; the
+   webview CSP stays closed.
+4. To open an item in SharePoint, add a narrow Rust command that opens a URL
+   **only if it belongs to the configured SharePoint site**. Do not add a
+   general "open URL" capability.
 
-Nothing in `services/`, `commands.rs` or the UI needs to change for 1–4.
+Nothing in `domain/`, `services/`, `commands.rs` or the UI needs to change.
+
+## Decisions and known limitations
+
+- **One template and one publication target for all systems.** With
+  multi-system activities, per-system templates or lists would conflict.
+  Systems keep their distribution lists and an (unused, preserved)
+  `metadata` map for future integration values.
+- **Systems and stations cannot be deleted**, only deactivated.
+- **Frontend types** in `src/api/types.ts` mirror the Rust serde types by
+  hand; generate them (e.g. `ts-rs`) if the API keeps growing.
+- **Draft storage is local** in the PoC; drafts are therefore per
+  workstation until a shared `DraftRepository` exists.
+- **PDF export location** is fixed (see above).
+- Internal logging is `stderr` only; add a rolling log file before production.
+- Light theme only; the visual redesign and dark mode are a separate PR.
 
 ## Dependencies
 
 | Dependency | Why |
 | --- | --- |
 | `tauri`, `tauri-build` | Desktop shell and IPC |
-| `chrono` | Local date/time (Windows-safe local offset) |
-| `url` | URL parsing for validation (already transitive via Tauri) |
+| `chrono` | Local date/time |
+| `url` | URL validation, file URLs (already transitive via Tauri) |
 | `serde`, `serde_json`, `thiserror` | Serialisation and error types |
+| `ttf-parser`, `unicode-bidi`, `miniz_oxide` | PDF export (see above) |
 | `react`, `react-dom` | UI |
 | `@tauri-apps/api` | Typed `invoke` |
 | dev: `vite`, `@vitejs/plugin-react`, `typescript`, `vitest`, `@tauri-apps/cli` | Build and tests |
 
 No UI kit, router, state library, icon package, spreadsheet library or
-clipboard plugin. The app has four screens, and a discriminated union plus a
-reducer is clearer than a framework.
-
-## Known limitations (PoC)
-
-- Frontend types in `src/api/types.ts` mirror the Rust serde types by hand.
-  If the API grows, generate them (e.g. `ts-rs`).
-- Columns are mapped by position unless a header row is pasted. If the real
-  log's column order differs, change `DEFAULT_COLUMNS` in `domain/log_rows.rs`,
-  or make it part of the configuration.
-- Internal logging is `stderr` only; add `tauri-plugin-log` with a rolling file
-  before production.
-- Light theme only.
+clipboard plugin.

@@ -1,22 +1,25 @@
 import { useState } from 'react';
 
 import type { Navigation } from '../../App';
-import type { InvestigationNumber, StoredInvestigation } from '../../api/types';
-import { rowsLabel } from '../../lib/format';
+import type { InvestigationNumber, PublishedInvestigation } from '../../api/types';
 import { Banner, Button, Ltr } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { CopyButton } from '../investigation/CopyButton';
 import { DistributionDialog } from '../investigation/DistributionDialog';
+import { ExportPdfButton, type Notice } from '../investigation/ExportPdfButton';
 
 interface Props {
-  created: StoredInvestigation;
-  previewNumber: InvestigationNumber | null;
+  created: PublishedInvestigation;
+  expectedNumber: InvestigationNumber | null;
   navigation: Navigation;
 }
 
-export function SuccessStep({ created, previewNumber, navigation }: Props) {
+export function SuccessStep({ created, expectedNumber, navigation }: Props) {
   const [distributing, setDistributing] = useState(false);
-  const numberChanged = previewNumber !== null && previewNumber !== created.number;
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const number = created.investigation.number;
+  const numberChanged = expectedNumber !== null && expectedNumber !== number;
+  const { activity } = created.investigation;
 
   return (
     <div className="success">
@@ -25,41 +28,47 @@ export function SuccessStep({ created, previewNumber, navigation }: Props) {
       </div>
       <h2 className="success-title">התחקיר נוצר בהצלחה</h2>
       <p className="success-number">
-        <Ltr>{created.number}</Ltr>
+        <Ltr>{number}</Ltr>
       </p>
       <p className="success-summary">
-        {created.system.name} · {created.template.name} · {rowsLabel(created.rows.length)}
+        {activity.name} · {activity.systems.map((system) => system.name).join(', ')}
       </p>
 
       {numberChanged && (
         <Banner>
-          המספר <Ltr>{previewNumber}</Ltr> נתפס בינתיים בתחקיר אחר, ולכן התחקיר נשמר במספר <Ltr>{created.number}</Ltr>.
+          המספר <Ltr>{expectedNumber}</Ltr> נתפס בינתיים בתחקיר אחר, ולכן התחקיר נשמר במספר <Ltr>{number}</Ltr>.
         </Banner>
       )}
 
       <div className="success-location">
         <Icon name="cloud" />
         <div>
-          <span className="success-location-label">נוצר ב-SharePoint כטופס לעריכה (סימולציה)</span>
-          <Ltr className="url">{created.url}</Ltr>
+          <span className="success-location-label">
+            {created.publication.destination === 'sharePoint'
+              ? 'נוצר ב-SharePoint כטופס לעריכה (סימולציה)'
+              : 'נשמר בתיקייה המשותפת'}
+          </span>
+          <Ltr className="url">{created.publication.url}</Ltr>
         </div>
-        <CopyButton value={created.url} label="העתקה" />
+        <CopyButton value={created.publication.url} label="העתקה" />
       </div>
-      <p className="success-hint">מעכשיו התחקיר מנוהל ב-SharePoint: שם משלימים ועורכים אותו.</p>
+      <p className="success-hint">הטיוטה הוסרה מרשימת הטיוטות. סטטוס התחקיר: הושלם.</p>
+      {notice && <Banner tone={notice.tone}>{notice.content}</Banner>}
 
       <div className="success-actions">
-        <Button variant="primary" size="large" onClick={() => navigation.openInvestigation(created.number)}>
+        <Button variant="primary" size="large" onClick={() => navigation.openInvestigation(number)}>
           פתח תחקיר
         </Button>
         <Button size="large" icon="mail" onClick={() => setDistributing(true)}>
-          הפץ במייל
+          הפצה במייל
         </Button>
+        <ExportPdfButton target={{ kind: 'investigation', number }} onNotice={setNotice} />
       </div>
       <button type="button" className="link-button" onClick={navigation.goHome}>
         חזרה לדף הבית
       </button>
 
-      {distributing && <DistributionDialog number={created.number} onClose={() => setDistributing(false)} />}
+      {distributing && <DistributionDialog number={number} onClose={() => setDistributing(false)} />}
     </div>
   );
 }
