@@ -26,7 +26,7 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel = 'ב
           <Button onClick={onCancel} disabled={busy ?? false}>
             {cancelLabel}
           </Button>
-          <Button variant="primary" className={danger ? 'btn-danger' : ''} busy={busy ?? false} onClick={onConfirm}>
+          <Button variant={danger ? 'danger' : 'primary'} className={danger ? 'btn-solid' : ''} busy={busy ?? false} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>

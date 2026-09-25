@@ -8,6 +8,7 @@ import { fieldMessage } from '../../api/errors';
 import type { ActivityInput, Workspace } from '../../api/types';
 import { ACTIVITY_STATUSES, ACTIVITY_TYPES } from '../../lib/labels';
 import { Button, Chips, Field, Segmented, YES_NO } from '../../ui/controls';
+import { Icon } from '../../ui/Icon';
 import { InlineAdvisory } from './InlineAdvisory';
 import { notesFor, visibleErrors, type WizardAction, type WizardState } from './wizardState';
 
@@ -62,6 +63,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
     <div className="form-page form-page-wide">
       <section className="form-card" aria-labelledby="activity-general">
         <h2 id="activity-general" className="form-card-title">
+          <Icon name="file" size={17} />
           פרטי הפעילות
         </h2>
         <Field label="שם משימה / פעילות" error={message('activityName')}>
@@ -184,6 +186,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
       <div className="time-groups">
         <section className="form-card" aria-labelledby="times-planned">
           <h2 id="times-planned" className="form-card-title">
+            <Icon name="clock" size={17} />
             תכנון
           </h2>
           {dateTime('plannedStart', 'התחלה')}
@@ -195,6 +198,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
         </section>
         <section className="form-card" aria-labelledby="times-actual">
           <h2 id="times-actual" className="form-card-title">
+            <Icon name="check" size={17} />
             ביצוע בפועל
           </h2>
           {dateTime('actualStart', 'התחלה')}

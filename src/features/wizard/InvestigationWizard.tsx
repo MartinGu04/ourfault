@@ -277,7 +277,7 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
             שמירה ויציאה
           </Button>
           {(draftRef.current || initialDraft) && (
-            <Button variant="subtle" icon="trash" disabled={busy !== null} onClick={() => setConfirm('delete')}>
+            <Button variant="danger" icon="trash" disabled={busy !== null} onClick={() => setConfirm('delete')}>
               מחיקת טיוטה
             </Button>
           )}

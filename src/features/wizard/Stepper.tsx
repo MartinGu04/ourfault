@@ -25,10 +25,17 @@ export function Stepper({ current, issues, onSelect }: Props) {
               aria-current={status === 'current' ? 'step' : undefined}
               onClick={() => onSelect(step.key)}
             >
-              <span className={count > 0 ? 'stepper-marker stepper-marker-issue' : 'stepper-marker'}>
-                {count > 0 ? count : status === 'complete' ? <Icon name="check" size={14} /> : index + 1}
+              <span className="stepper-marker">
+                {status === 'complete' ? <Icon name="check" size={13} /> : index + 1}
               </span>
               <span className="stepper-label">{step.label}</span>
+              {count > 0 && (
+                <span className="stepper-issues" title={`${count} פריטים לתיקון בשלב זה`}>
+                  <Icon name="error" size={11} />
+                  {count}
+                  <span className="visually-hidden"> פריטים לתיקון</span>
+                </span>
+              )}
             </button>
           </li>
         );

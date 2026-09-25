@@ -7,7 +7,7 @@ import type { DraftSummary, InvestigationSummary } from '../../api/types';
 import { formatDate, formatTimestamp, rowsLabel } from '../../lib/format';
 import { activityTypeLabel, stepLabel } from '../../lib/labels';
 import { useResource } from '../../lib/useResource';
-import { Banner, Button, Ltr, Spinner } from '../../ui/controls';
+import { Banner, Button, EmptyState, Ltr, Spinner } from '../../ui/controls';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Icon } from '../../ui/Icon';
 import { StatusBadge } from '../investigation/StatusBadge';
@@ -16,12 +16,15 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
   const [workspace] = useResource(api.getWorkspace);
   return (
     <div className="page page-narrow home">
-      <section className="home-hero">
-        <div>
-          <h1 className="page-title">תחקירים</h1>
+      <section className="home-hero" aria-labelledby="home-title">
+        <div className="home-hero-text">
+          <p className="page-eyebrow">OurFault · תחקירי פעילות</p>
+          <h1 id="home-title" className="page-title">
+            תחקירים
+          </h1>
           <p className="page-subtitle">פרטי הפעילות, הפרטים הטכניים והשתלשלות האירועים – והתחקיר מוכן להפצה.</p>
         </div>
-        <Button variant="primary" size="large" icon="plus" onClick={navigation.startInvestigation}>
+        <Button variant="primary" size="large" icon="plus" className="home-new" onClick={navigation.startInvestigation}>
           תחקיר חדש
         </Button>
       </section>
@@ -63,32 +66,46 @@ function Drafts({ onOpen }: { onOpen: (id: string) => void }) {
     <section className="home-section" aria-labelledby="drafts-title">
       <h2 id="drafts-title" className="section-title">
         טיוטות
+        {drafts.status === 'ready' && drafts.data.length > 0 && <span className="count">{drafts.data.length}</span>}
       </h2>
       {error && <Banner tone="error">{error}</Banner>}
       {drafts.status === 'loading' && <Spinner label="טוען טיוטות" />}
       {drafts.status === 'error' && <Banner tone="error">{errorMessage(drafts.error)}</Banner>}
       {drafts.status === 'ready' && drafts.data.length === 0 && (
-        <p className="empty-text">אין טיוטות פתוחות. תחקיר חדש נשמר כטיוטה באופן אוטומטי.</p>
+        <EmptyState icon="draft" title="אין טיוטות פתוחות" compact>
+          תחקיר חדש נשמר כטיוטה באופן אוטומטי, וניתן להמשיך אותו מכאן.
+        </EmptyState>
       )}
       {drafts.status === 'ready' && drafts.data.length > 0 && (
-        <ul className="list">
+        <ul className="draft-grid">
           {drafts.data.map((draft) => (
-            <li key={draft.id} className="list-row">
-              <button type="button" className="list-item draft-item" onClick={() => onOpen(draft.id)}>
-                <Icon name="draft" className="list-icon" />
-                <span className="list-main">
-                  <span className="list-title">{draft.activityName || 'טיוטה ללא שם'}</span>
-                  <span className="list-meta">
-                    {draft.systemNames.length > 0 ? draft.systemNames.join(', ') : 'לא נבחרו מערכות'} ·{' '}
-                    {rowsLabel(draft.rowCount)} · נעצר ב{stepLabel(draft.step)}
+            <li key={draft.id} className="draft-card">
+              <button type="button" className="draft-item draft-card-main" onClick={() => onOpen(draft.id)}>
+                <span className="draft-card-head">
+                  <span className="draft-card-badge">
+                    <Icon name="draft" size={14} />
+                    טיוטה
+                  </span>
+                  <span className="draft-card-saved">
+                    <Icon name="clock" size={13} />
+                    נשמר {formatTimestamp(draft.updatedAt)}
                   </span>
                 </span>
-                <span className="list-meta">נשמר {formatTimestamp(draft.updatedAt)}</span>
-                <Icon name="forward" className="list-chevron" />
+                <span className="draft-card-title">{draft.activityName || 'טיוטה ללא שם'}</span>
+                <span className="draft-card-meta">
+                  {draft.systemNames.length > 0 ? draft.systemNames.join(', ') : 'לא נבחרו מערכות'}
+                </span>
+                <span className="draft-card-meta">
+                  {rowsLabel(draft.rowCount)} · נעצר ב{stepLabel(draft.step)}
+                </span>
+                <span className="draft-card-continue">
+                  המשך עבודה
+                  <Icon name="forward" size={16} />
+                </span>
               </button>
               <button
                 type="button"
-                className="icon-button icon-button-danger"
+                className="icon-button icon-button-danger draft-card-delete"
                 aria-label={`מחיקת הטיוטה ${draft.activityName || 'ללא שם'}`}
                 title="מחיקת טיוטה"
                 onClick={() => setDeleting(draft)}
@@ -137,7 +154,7 @@ function SearchInvestigations({ onOpen }: { onOpen: (number: string) => void }) 
 
   return (
     <section className="home-section" aria-labelledby="search-title">
-      <h2 id="search-title" className="visually-hidden">
+      <h2 id="search-title" className="section-title">
         חיפוש תחקיר
       </h2>
       <form className="search" role="search" onSubmit={submit}>
@@ -164,9 +181,30 @@ function SearchInvestigations({ onOpen }: { onOpen: (number: string) => void }) 
           </Button>
         </div>
       </form>
-      {error && <p className="search-message">{error}</p>}
-      {results && results.length === 0 && <p className="search-message">לא נמצאו תחקירים עבור "{query.trim()}".</p>}
-      {results && results.length > 0 && <InvestigationList items={results} onOpen={onOpen} />}
+      {error && <Banner tone="error">{error}</Banner>}
+      {results && results.length === 0 && (
+        <EmptyState icon="search" title={`לא נמצאו תחקירים עבור "${query.trim()}"`} compact>
+          ניתן לחפש לפי מספר תחקיר (למשל 056-2026), שם משימה או שם מערכת.
+        </EmptyState>
+      )}
+      {results && results.length > 0 && (
+        <div className="search-results">
+          <p className="search-results-title">
+            {results.length === 1 ? 'נמצא תחקיר אחד' : `נמצאו ${results.length} תחקירים`}
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setQuery('');
+                setResults(null);
+              }}
+            >
+              ניקוי החיפוש
+            </button>
+          </p>
+          <InvestigationList items={results} onOpen={onOpen} />
+        </div>
+      )}
     </section>
   );
 }
@@ -181,34 +219,53 @@ function RecentInvestigations({ onOpen }: { onOpen: (number: string) => void }) 
       </h2>
       {recent.status === 'loading' && <Spinner label="טוען תחקירים" />}
       {recent.status === 'error' && <Banner tone="error">{errorMessage(recent.error)}</Banner>}
-      {recent.status === 'ready' && recent.data.length === 0 && <p className="empty-text">עדיין לא נוצרו תחקירים.</p>}
+      {recent.status === 'ready' && recent.data.length === 0 && (
+        <EmptyState icon="inbox" title="עדיין לא נוצרו תחקירים" compact>
+          תחקירים שייווצרו יופיעו כאן, מהחדש לישן.
+        </EmptyState>
+      )}
       {recent.status === 'ready' && recent.data.length > 0 && <InvestigationList items={recent.data} onOpen={onOpen} />}
     </section>
   );
 }
 
-/** The dashboard columns: number | systems | activity | date (+ type, status). */
+/** The dashboard columns: number | activity (+ type) | systems | date | status. */
 function InvestigationList({ items, onOpen }: { items: InvestigationSummary[]; onOpen: (number: string) => void }) {
   return (
-    <ul className="list">
-      {items.map((item) => (
-        <li key={item.number} className="list-row">
-          <button type="button" className="list-item investigation-item" onClick={() => onOpen(item.number)}>
-            <span className="list-number">
-              <Ltr>{item.number}</Ltr>
-            </span>
-            <span className="list-main">
-              <span className="list-title">{item.activityName}</span>
-              <span className="list-meta">
-                {activityTypeLabel(item.activityType)} · {item.systems.join(', ')}
+    <div className="list">
+      <div className="list-head investigation-grid" aria-hidden="true">
+        <span>מספר</span>
+        <span>פעילות</span>
+        <span>מערכות</span>
+        <span>תאריך</span>
+        <span>סטטוס</span>
+        <span />
+      </div>
+      <ul className="list-body">
+        {items.map((item) => (
+          <li key={item.number} className="list-row">
+            <button
+              type="button"
+              className="list-item investigation-item investigation-grid"
+              onClick={() => onOpen(item.number)}
+            >
+              <span className="list-number">
+                <Ltr>{item.number}</Ltr>
               </span>
-            </span>
-            <StatusBadge status={item.status} />
-            <span className="list-meta">{formatDate(item.date)}</span>
-            <Icon name="forward" className="list-chevron" />
-          </button>
-        </li>
-      ))}
-    </ul>
+              <span className="list-main">
+                <span className="list-title">{item.activityName}</span>
+                <span className="list-meta">{activityTypeLabel(item.activityType)}</span>
+              </span>
+              <span className="list-systems">{item.systems.join(', ')}</span>
+              <span className="list-date">{formatDate(item.date)}</span>
+              <span>
+                <StatusBadge status={item.status} />
+              </span>
+              <Icon name="forward" className="list-chevron" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -41,8 +41,9 @@ activity type) and one saved draft (*בלט רומני*).
 
 ### Demo walkthrough
 
-1. **Entry screen**: choose **כניסה רגילה**. (This chooses a work mode; it is
-   not a login.)
+1. **Welcome screen**: choose **כניסה רגילה**. (This chooses a work mode; it
+   is not a login.) The theme switch in the top bar offers Light, Dark and
+   System; the choice is remembered on this computer.
 2. **Home**: continue the draft *בלט רומני* under **טיוטות**, or start
    **תחקיר חדש**. Every change is saved automatically (*נשמר* at the top).
    Use **שמירה ויציאה** at any time and reopen the draft later.
@@ -108,7 +109,8 @@ NSIS installer as a build artifact.
 ## Project layout
 
 ```
-src/                React UI (Hebrew, RTL) – screens under src/features, IPC client in src/api
+src/                React UI (Hebrew, RTL) – screens under src/features, IPC client in src/api,
+                    design system in src/styles (tokens.css first), brand assets in src/assets/brand
 src-tauri/src/      Rust: domain rules, rendering (HTML/PDF), services, adapters (mocks), commands
 src-tauri/seed/     fictional first-run data
 src-tauri/assets/   bundled font for PDF export (Alef, SIL Open Font License)

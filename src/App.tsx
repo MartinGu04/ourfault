@@ -7,9 +7,13 @@ import { EntryScreen } from './features/entry/EntryScreen';
 import { HomeScreen } from './features/home/HomeScreen';
 import { InvestigationScreen } from './features/investigation/InvestigationScreen';
 import { InvestigationWizard } from './features/wizard/InvestigationWizard';
+import brandIcon from './assets/brand/ourfault-icon.png';
+import { useTheme, type ThemePreference } from './lib/theme';
 import { useResource } from './lib/useResource';
+import { Backdrop } from './ui/Backdrop';
 import { Button, Spinner } from './ui/controls';
 import { Icon } from './ui/Icon';
+import { ThemeSwitch } from './ui/ThemeSwitch';
 
 export type Screen =
   | { name: 'home' }
@@ -27,6 +31,7 @@ export function App() {
   const [loaded] = useResource(api.getSession);
   const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  const { preference, setPreference } = useTheme();
 
   useEffect(() => {
     if (loaded.status === 'ready') setSession(loaded.data);
@@ -41,9 +46,13 @@ export function App() {
 
   if (loaded.status === 'error') return <StartupError />;
   if (!session) {
+    // Same navy as the window and the welcome screen: no flash while loading.
     return (
-      <div className="app-center">
-        <Spinner label="טוען" />
+      <div className="app-center" data-theme="dark">
+        <div className="app-loading">
+          <img src={brandIcon} alt="" />
+          <Spinner label="טוען" />
+        </div>
       </div>
     );
   }
@@ -63,7 +72,15 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar session={session} screen={screen} navigation={navigation} onLeave={leave} />
+      <Backdrop />
+      <TopBar
+        session={session}
+        screen={screen}
+        navigation={navigation}
+        onLeave={leave}
+        theme={preference}
+        onThemeChange={setPreference}
+      />
       <main className="app-main">
         {session.mode === 'admin' ? (
           <AdminScreen />
@@ -88,18 +105,22 @@ interface TopBarProps {
   screen: Screen;
   navigation: Navigation;
   onLeave: () => void;
+  theme: ThemePreference;
+  onThemeChange: (theme: ThemePreference) => void;
 }
 
-function TopBar({ session, screen, navigation, onLeave }: TopBarProps) {
+function TopBar({ session, screen, navigation, onLeave, theme, onThemeChange }: TopBarProps) {
   const regular = session.mode === 'regular';
   // The wizard has its own exit (which saves the draft first).
   const inWizard = regular && screen.name === 'wizard';
   const brandIsLink = regular && screen.name === 'investigation';
   const brand = (
     <>
-      <img className="brand-logo" src="/app-icon.svg" alt="" width={28} height={28} />
-      <span className="brand-name">OurFault</span>
-      <span className="brand-tagline">תחקירי פעילות</span>
+      <img className="brand-mark" src={brandIcon} alt="" width={30} height={30} />
+      <span className="brand-name">
+        Our<span className="brand-name-accent">Fault</span>
+      </span>
+      <span className="brand-tagline">מערכת ליצירה וניהול תחקירים</span>
     </>
   );
   return (
@@ -112,8 +133,8 @@ function TopBar({ session, screen, navigation, onLeave }: TopBarProps) {
         <div className="brand">{brand}</div>
       )}
       <div className="topbar-end">
-        <span className={regular ? 'mode-chip' : 'mode-chip mode-chip-admin'}>
-          <Icon name={regular ? 'user' : 'shield'} size={15} />
+        <span className={regular ? 'mode-badge' : 'mode-badge mode-badge-admin'} title="מצב העבודה הנוכחי">
+          <Icon name={regular ? 'user' : 'settings'} size={15} />
           {regular ? 'כניסה רגילה' : 'מצב מנהל'}
         </span>
         {!inWizard && (
@@ -121,6 +142,9 @@ function TopBar({ session, screen, navigation, onLeave }: TopBarProps) {
             החלפת מצב עבודה
           </Button>
         )}
+        <span className="topbar-divider" aria-hidden="true" />
+        <ThemeSwitch value={theme} onChange={onThemeChange} />
+        <span className="topbar-divider" aria-hidden="true" />
         <span className="user-chip" title="משתמש Windows">
           <span className="user-avatar" aria-hidden="true">
             {session.operatorName.trim().charAt(0).toUpperCase()}

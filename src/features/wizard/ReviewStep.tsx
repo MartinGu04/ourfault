@@ -8,7 +8,7 @@ import { advisoryMessage, errorMessage, fieldMessage, MISSING_CODES } from '../.
 import type { Advisory, DraftContent, DraftStep, FieldError, Review, Severity, Workspace } from '../../api/types';
 import { issuesLabel } from '../../lib/format';
 import { describeField } from '../../lib/labels';
-import { Banner, Button, Field, Ltr, Spinner } from '../../ui/controls';
+import { Banner, Button, Field, Ltr, Spinner, TONE_ICON, type Tone } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { DocumentViewer } from '../investigation/DocumentViewer';
 import { blockingIssues, errorFor, type WizardAction, type WizardState } from './wizardState';
@@ -55,44 +55,102 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
 
   return (
     <div className="review">
-      <div className="form-card">
-        <Field
-          label="קישור לבדיקות מקדימות"
-          error={urlError ? fieldMessage(urlError) : undefined}
-          hint="הדביקו את הקישור לבדיקות המקדימות שבוצעו. הקישור נשמר בתחקיר ואינו נפתח מתוך OurFault."
-        >
-          {({ id, describedBy, invalid }) => (
-            <input
-              id={id}
-              className="input input-ltr"
-              type="url"
-              dir="ltr"
-              inputMode="url"
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={2048}
-              placeholder="https://"
-              value={state.preliminaryCheckUrl}
-              aria-describedby={describedBy}
-              aria-invalid={invalid || undefined}
-              onChange={(event) => dispatch({ type: 'urlChanged', url: event.target.value })}
-            />
-          )}
-        </Field>
-      </div>
-
       {error && <Banner tone="error">{error}</Banner>}
+      {review && <ReviewStatus review={review} state={state} />}
       {!review && !error && <Spinner label="בודק את הטיוטה" />}
 
-      {review && (
-        <>
-          <ReviewSummary review={review} state={state} dispatch={dispatch} workspace={workspace} onGoTo={onGoTo} />
+      <div className="review-layout">
+        <div className="review-side">
+          <section className="form-card review-checks" aria-labelledby="review-checks-title">
+            <h2 id="review-checks-title" className="form-card-title">
+              <Icon name="link" size={17} />
+              בדיקות מקדימות
+            </h2>
+            <Field
+              label="קישור לבדיקות מקדימות"
+              error={urlError ? fieldMessage(urlError) : undefined}
+              hint="הדביקו את הקישור לבדיקות המקדימות שבוצעו. הקישור נשמר בתחקיר ואינו נפתח מתוך OurFault."
+            >
+              {({ id, describedBy, invalid }) => (
+                <input
+                  id={id}
+                  className="input input-ltr"
+                  type="url"
+                  dir="ltr"
+                  inputMode="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={2048}
+                  placeholder="https://"
+                  value={state.preliminaryCheckUrl}
+                  aria-describedby={describedBy}
+                  aria-invalid={invalid || undefined}
+                  onChange={(event) => dispatch({ type: 'urlChanged', url: event.target.value })}
+                />
+              )}
+            </Field>
+          </section>
+          {review && <ReviewSummary review={review} state={state} dispatch={dispatch} workspace={workspace} onGoTo={onGoTo} />}
+        </div>
 
-          <div className="preview-frame">
-            <DocumentViewer document={review.document} />
-          </div>
-        </>
-      )}
+        {review && (
+          <section className="review-preview" aria-labelledby="review-preview-title">
+            <header className="review-preview-header">
+              <h2 id="review-preview-title">
+                <Icon name="file" size={17} />
+                תצוגה מקדימה
+              </h2>
+              <p>כך ייראה התחקיר לאחר היצירה. בשלב זה הוא מסומן כטיוטה.</p>
+            </header>
+            <div className="preview-frame">
+              <DocumentViewer document={review.document} />
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Readiness = 'blocked' | 'warnings' | 'notes' | 'ready';
+
+/** Whether creation is blocked, allowed with warnings or notes, or clear. */
+export function readiness(state: WizardState, review: Review): Readiness {
+  if (state.fieldErrors.length > 0) return 'blocked';
+  if (review.advisories.some((advisory) => advisory.severity === 'warning')) return 'warnings';
+  if (review.advisories.some((advisory) => advisory.severity === 'info')) return 'notes';
+  return 'ready';
+}
+
+const READINESS: Record<Readiness, { tone: Tone; title: string }> = {
+  blocked: { tone: 'error', title: '' },
+  warnings: { tone: 'warning', title: 'ניתן ליצור את התחקיר · יש אזהרות לבדיקה' },
+  notes: { tone: 'info', title: 'התחקיר מוכן ליצירה · יש הערות לידיעה' },
+  ready: { tone: 'success', title: 'התחקיר מוכן ליצירה' },
+};
+
+/** The answer to "can I create it now?", at the top of the review. */
+export function ReviewStatus({ review, state }: { review: Review; state: WizardState }) {
+  const level = readiness(state, review);
+  const { missing, invalid } = splitIssues(state.fieldErrors);
+  const { tone, title } = READINESS[level];
+  return (
+    <div className={`review-status tone-${tone}`} role="status">
+      <span className="review-status-icon">
+        <Icon name={TONE_ICON[tone]} size={22} />
+      </span>
+      <div>
+        <p className="review-status-title">{level === 'blocked' ? statusTitle(missing.length, invalid.length) : title}</p>
+        <p className="review-status-number">
+          {review.expectedNumber ? (
+            <>
+              מספר צפוי: <Ltr>{review.expectedNumber}</Ltr> · המספר הסופי יוקצה ברגע היצירה
+            </>
+          ) : (
+            'יעד הפרסום אינו זמין כרגע. המספר יוקצה ברגע היצירה.'
+          )}
+        </p>
+      </div>
     </div>
   );
 }
@@ -108,28 +166,13 @@ interface SummaryProps {
 /** The consolidated list: everything that blocks creation, then warnings and information. */
 export function ReviewSummary({ review, state, dispatch, workspace, onGoTo }: SummaryProps) {
   const { missing, invalid } = splitIssues(state.fieldErrors);
-  const ready = state.fieldErrors.length === 0;
   const warnings = review.advisories.filter((advisory) => advisory.severity === 'warning');
   const notes = review.advisories.filter((advisory) => advisory.severity === 'info');
   const markNight = () => dispatch({ type: 'activityChanged', patch: { nightActivity: true } });
 
+  if (missing.length + invalid.length + warnings.length + notes.length === 0) return null;
   return (
     <div className="review-summary">
-      <div className={ready ? 'review-status review-status-ok' : 'review-status'}>
-        <Icon name={ready ? 'check' : 'alert'} size={20} />
-        <div>
-          <p className="review-status-title">{statusTitle(missing.length, invalid.length)}</p>
-          <p className="review-status-number">
-            {review.expectedNumber ? (
-              <>
-                מספר צפוי: <Ltr>{review.expectedNumber}</Ltr> · המספר הסופי יוקצה ברגע היצירה
-              </>
-            ) : (
-              'יעד הפרסום אינו זמין כרגע. המספר יוקצה ברגע היצירה.'
-            )}
-          </p>
-        </div>
-      </div>
       <IssueGroup title="ערכי חובה חסרים" tone="error" issues={missing} workspace={workspace} onGoTo={onGoTo} />
       <IssueGroup title="ערכים לא תקינים" tone="error" issues={invalid} workspace={workspace} onGoTo={onGoTo} />
       <IssueGroup
@@ -185,9 +228,9 @@ interface GroupProps {
 function IssueGroup({ title, tone, issues, workspace, onGoTo, action }: GroupProps) {
   if (issues.length === 0) return null;
   return (
-    <section className={`issue-group issue-group-${tone}`} aria-label={title}>
+    <section className={`issue-group issue-group-${tone} tone-${tone}`} aria-label={title}>
       <h3 className="issue-group-title">
-        <Icon name={tone === 'info' ? 'info' : 'alert'} size={15} />
+        <Icon name={TONE_ICON[tone]} size={16} />
         {title} <span className="issue-group-count">{issues.length}</span>
       </h3>
       <ul className="issue-list">

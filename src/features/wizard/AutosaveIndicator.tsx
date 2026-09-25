@@ -10,12 +10,17 @@ interface Props {
 /** A quiet indicator: נשמר / שומר... / שגיאה בשמירה. */
 export function AutosaveIndicator({ status, error, onRetry }: Props) {
   if (status === 'idle') {
-    return <span className="autosave autosave-idle">הטיוטה תישמר אוטומטית</span>;
+    return (
+      <span className="autosave autosave-idle">
+        <Icon name="clock" size={13} />
+        נשמר אוטומטית
+      </span>
+    );
   }
   if (status === 'error') {
     return (
       <span className="autosave autosave-error" role="alert">
-        <Icon name="alert" size={15} />
+        <Icon name="error" size={13} />
         שגיאה בשמירה
         {error && <span className="autosave-detail">{error}</span>}
         <button type="button" className="link-button" onClick={onRetry}>
@@ -27,7 +32,7 @@ export function AutosaveIndicator({ status, error, onRetry }: Props) {
   const saving = status === 'saving' || status === 'pending';
   return (
     <span className={saving ? 'autosave autosave-saving' : 'autosave autosave-saved'} aria-live="polite">
-      {saving ? <span className="spinner" /> : <Icon name="check" size={15} />}
+      {saving ? <span className="spinner" /> : <Icon name="check" size={13} />}
       {saving ? 'שומר...' : 'נשמר'}
     </span>
   );
