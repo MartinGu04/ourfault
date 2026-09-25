@@ -1,73 +1,105 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { api } from './api/client';
-import type { CurrentUser, InvestigationNumber } from './api/types';
+import type { InvestigationNumber, Session, WorkMode } from './api/types';
 import { AdminScreen } from './features/admin/AdminScreen';
+import { EntryScreen } from './features/entry/EntryScreen';
 import { HomeScreen } from './features/home/HomeScreen';
 import { InvestigationScreen } from './features/investigation/InvestigationScreen';
-import { NewInvestigationWizard } from './features/wizard/NewInvestigationWizard';
+import { InvestigationWizard } from './features/wizard/InvestigationWizard';
 import { useResource } from './lib/useResource';
 import { Button, Spinner } from './ui/controls';
 import { Icon } from './ui/Icon';
 
 export type Screen =
   | { name: 'home' }
-  | { name: 'wizard' }
-  | { name: 'investigation'; number: InvestigationNumber }
-  | { name: 'admin' };
+  | { name: 'wizard'; draftId: string | null }
+  | { name: 'investigation'; number: InvestigationNumber };
 
 export interface Navigation {
   goHome: () => void;
   startInvestigation: () => void;
+  openDraft: (id: string) => void;
   openInvestigation: (number: InvestigationNumber) => void;
-  openAdmin: () => void;
 }
 
 export function App() {
-  const [session] = useResource(api.getSession);
+  const [loaded] = useResource(api.getSession);
+  const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
+
+  useEffect(() => {
+    if (loaded.status === 'ready') setSession(loaded.data);
+  }, [loaded]);
 
   const navigation: Navigation = {
     goHome: () => setScreen({ name: 'home' }),
-    startInvestigation: () => setScreen({ name: 'wizard' }),
+    startInvestigation: () => setScreen({ name: 'wizard', draftId: null }),
+    openDraft: (id) => setScreen({ name: 'wizard', draftId: id }),
     openInvestigation: (number) => setScreen({ name: 'investigation', number }),
-    openAdmin: () => setScreen({ name: 'admin' }),
   };
 
-  if (session.status === 'loading') {
+  if (loaded.status === 'error') return <StartupError />;
+  if (!session) {
     return (
       <div className="app-center">
         <Spinner label="טוען" />
       </div>
     );
   }
-  if (session.status === 'error') {
-    return <StartupError />;
+
+  async function enter(mode: WorkMode) {
+    setSession(await api.enterWorkMode(mode));
+    setScreen({ name: 'home' });
   }
 
-  const user = session.data;
+  async function leave() {
+    setSession(await api.leaveWorkMode());
+  }
+
+  if (session.mode === null) {
+    return <EntryScreen session={session} onEnter={enter} />;
+  }
+
   return (
     <div className="app">
-      <TopBar user={user} screen={screen} navigation={navigation} />
+      <TopBar session={session} screen={screen} navigation={navigation} onLeave={leave} />
       <main className="app-main">
-        {screen.name === 'home' && <HomeScreen navigation={navigation} />}
-        {screen.name === 'wizard' && <NewInvestigationWizard navigation={navigation} />}
-        {screen.name === 'investigation' && <InvestigationScreen number={screen.number} navigation={navigation} />}
-        {screen.name === 'admin' && user.isAdmin && <AdminScreen navigation={navigation} />}
+        {session.mode === 'admin' ? (
+          <AdminScreen />
+        ) : (
+          <>
+            {screen.name === 'home' && <HomeScreen navigation={navigation} />}
+            {screen.name === 'wizard' && (
+              <InvestigationWizard key={screen.draftId ?? 'new'} draftId={screen.draftId} navigation={navigation} />
+            )}
+            {screen.name === 'investigation' && (
+              <InvestigationScreen number={screen.number} navigation={navigation} />
+            )}
+          </>
+        )}
       </main>
     </div>
   );
 }
 
-function TopBar({ user, screen, navigation }: { user: CurrentUser; screen: Screen; navigation: Navigation }) {
-  // Leaving the wizard from the top bar would silently discard work, so the
-  // brand only navigates home from other screens.
-  const brandIsLink = screen.name !== 'wizard' && screen.name !== 'home';
+interface TopBarProps {
+  session: Session;
+  screen: Screen;
+  navigation: Navigation;
+  onLeave: () => void;
+}
+
+function TopBar({ session, screen, navigation, onLeave }: TopBarProps) {
+  const regular = session.mode === 'regular';
+  // The wizard has its own exit (which saves the draft first).
+  const inWizard = regular && screen.name === 'wizard';
+  const brandIsLink = regular && screen.name === 'investigation';
   const brand = (
     <>
       <img className="brand-logo" src="/app-icon.svg" alt="" width={28} height={28} />
       <span className="brand-name">OurFault</span>
-      <span className="brand-tagline">תחקירים מיומן המבצעים</span>
+      <span className="brand-tagline">תחקירי פעילות</span>
     </>
   );
   return (
@@ -80,16 +112,20 @@ function TopBar({ user, screen, navigation }: { user: CurrentUser; screen: Scree
         <div className="brand">{brand}</div>
       )}
       <div className="topbar-end">
-        {user.isAdmin && screen.name === 'home' && (
-          <Button variant="subtle" icon="settings" onClick={navigation.openAdmin}>
-            ניהול מערכות
+        <span className={regular ? 'mode-chip' : 'mode-chip mode-chip-admin'}>
+          <Icon name={regular ? 'user' : 'shield'} size={15} />
+          {regular ? 'כניסה רגילה' : 'מצב מנהל'}
+        </span>
+        {!inWizard && (
+          <Button variant="subtle" icon="swap" onClick={onLeave}>
+            החלפת מצב עבודה
           </Button>
         )}
-        <span className="user-chip" title={user.isAdmin ? 'מנהל מערכת' : 'מפעיל'}>
+        <span className="user-chip" title="משתמש Windows">
           <span className="user-avatar" aria-hidden="true">
-            {user.displayName.trim().charAt(0)}
+            {session.operatorName.trim().charAt(0).toUpperCase()}
           </span>
-          {user.displayName}
+          <bdi>{session.operatorName}</bdi>
         </span>
       </div>
     </header>

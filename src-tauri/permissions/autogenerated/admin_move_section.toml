@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-move-section"
+description = "Enables the admin_move_section command without any pre-configured scope."
+commands.allow = ["admin_move_section"]
+
+[[permission]]
+identifier = "deny-admin-move-section"
+description = "Denies the admin_move_section command without any pre-configured scope."
+commands.deny = ["admin_move_section"]

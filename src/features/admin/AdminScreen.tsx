@@ -1,100 +1,55 @@
+// Admin mode: initial setup and later administration are the same screens
+// over the same configuration. Every change is validated and saved by the
+// backend, which only accepts it in admin mode.
+
 import { useState } from 'react';
 
-import type { Navigation } from '../../App';
 import { api } from '../../api/client';
 import { errorMessage } from '../../api/errors';
-import type { System } from '../../api/types';
 import { useResource } from '../../lib/useResource';
-import { Badge, Banner, Button, Spinner } from '../../ui/controls';
-import { SystemEditor } from './SystemEditor';
+import { Banner, Spinner, Tabs } from '../../ui/controls';
+import { PublishingPanel } from './PublishingPanel';
+import { SectionsPanel } from './SectionsPanel';
+import { SetupOverview } from './SetupOverview';
+import { StationsPanel } from './StationsPanel';
+import { SystemsPanel } from './SystemsPanel';
 
-type Selection = { mode: 'edit'; id: string } | { mode: 'new' };
+export type AdminTab = 'setup' | 'systems' | 'stations' | 'sections' | 'publishing';
 
-export function AdminScreen({ navigation }: { navigation: Navigation }) {
-  const [systems, reload] = useResource(api.adminListSystems);
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+const TABS: { key: AdminTab; label: string }[] = [
+  { key: 'setup', label: 'הגדרה ראשונית' },
+  { key: 'systems', label: 'מערכות ורשימות תפוצה' },
+  { key: 'stations', label: 'תחנות לווייניות' },
+  { key: 'sections', label: 'סעיפים טכניים' },
+  { key: 'publishing', label: 'הפצה ופרסום' },
+];
 
-  const list = systems.status === 'ready' ? systems.data : [];
-  const effective: Selection | null = selection ?? (list[0] ? { mode: 'edit', id: list[0].id } : null);
-  const selected = effective?.mode === 'edit' ? list.find((system) => system.id === effective.id) : undefined;
-
-  function select(next: Selection) {
-    setNotice(null);
-    setSelection(next);
-  }
-
-  function handleSaved(system: System, message: string) {
-    setNotice(message);
-    setSelection({ mode: 'edit', id: system.id });
-    reload();
-  }
+export function AdminScreen() {
+  const [loaded, reload] = useResource(api.adminGetConfiguration);
+  const [tab, setTab] = useState<AdminTab>('setup');
 
   return (
     <div className="page admin">
-      <div className="page-toolbar">
-        <Button variant="subtle" icon="back" onClick={navigation.goHome}>
-          דף הבית
-        </Button>
-      </div>
       <div className="page-heading">
         <div>
-          <h1 className="page-title">ניהול מערכות</h1>
+          <h1 className="page-title">הגדרות</h1>
           <p className="page-subtitle">
-            לכל מערכת מוגדרות תבנית תחקיר, רשימת תפוצה ויעד שמירה. מערכות אינן נמחקות: מערכת שהושבתה אינה מופיעה
-            בתחקירים חדשים, והיסטוריית התחקירים שלה נשמרת.
+            ההגדרה הראשונית וההגדרות השוטפות הן אותן הגדרות: אפשר לחזור לכאן בכל עת ולשנות אותן. תחקירים שכבר נוצרו
+            שומרים את הנתונים כפי שהיו בעת יצירתם.
           </p>
         </div>
-        <Button variant="primary" icon="plus" onClick={() => select({ mode: 'new' })}>
-          מערכת חדשה
-        </Button>
       </div>
+      <Tabs label="אזורי הגדרה" tabs={TABS} current={tab} onChange={setTab} />
 
-      {systems.status === 'loading' && <Spinner label="טוען מערכות" />}
-      {systems.status === 'error' && <Banner tone="error">{errorMessage(systems.error)}</Banner>}
-      {systems.status === 'ready' && (
-        <div className="admin-layout">
-          <nav className="system-list" aria-label="מערכות">
-            {list.map((system) => (
-              <button
-                key={system.id}
-                type="button"
-                className="system-list-item"
-                aria-current={selected?.id === system.id ? 'true' : undefined}
-                onClick={() => select({ mode: 'edit', id: system.id })}
-              >
-                <span className="system-list-name">{system.name}</span>
-                <Badge tone={system.active ? 'success' : 'muted'}>{system.active ? 'פעילה' : 'מושבתת'}</Badge>
-                <span className="system-list-meta">{system.template.name}</span>
-              </button>
-            ))}
-            {effective?.mode === 'new' && (
-              <div className="system-list-item" aria-current="true">
-                <span className="system-list-name">מערכת חדשה</span>
-              </div>
-            )}
-          </nav>
-
-          {effective?.mode === 'new' && (
-            <SystemEditor
-              key="new"
-              system={null}
-              notice={notice}
-              onSaved={(system) => handleSaved(system, 'המערכת נוצרה.')}
-              onCancel={() => select(list[0] ? { mode: 'edit', id: list[0].id } : { mode: 'new' })}
-            />
-          )}
-          {selected && (
-            <SystemEditor
-              key={selected.id}
-              system={selected}
-              notice={notice}
-              onSaved={(system) => handleSaved(system, 'השינויים נשמרו.')}
-              onActiveChanged={(system) =>
-                handleSaved(system, system.active ? 'המערכת הופעלה.' : 'המערכת הושבתה. היא לא תופיע בתחקירים חדשים.')
-              }
-            />
-          )}
+      {loaded.status === 'loading' && <Spinner label="טוען הגדרות" />}
+      {loaded.status === 'error' && <Banner tone="error">{errorMessage(loaded.error)}</Banner>}
+      {loaded.status === 'ready' && (
+        <div className="admin-panel" role="tabpanel">
+          {tab === 'setup' && <SetupOverview setup={loaded.data.setup} onOpen={setTab} />}
+          {tab === 'systems' && <SystemsPanel systems={loaded.data.configuration.systems} onChanged={reload} />}
+          {tab === 'stations' && <StationsPanel stations={loaded.data.configuration.stations} onChanged={reload} />}
+          {tab === 'sections' && <SectionsPanel sections={loaded.data.configuration.sections} onChanged={reload} />}
+          {tab === 'publishing' && <PublishingPanel configuration={loaded.data.configuration} onChanged={reload} />}
         </div>
       )}
     </div>

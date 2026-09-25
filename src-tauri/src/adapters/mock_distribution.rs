@@ -1,5 +1,7 @@
 //! Stand-in for the mail system. Appends messages to a local "outbox" JSON
-//! file instead of sending them.
+//! file instead of sending them. The real adapter sends as the signed-in
+//! Outlook user (whose signature Outlook adds); it must stay behind
+//! [`DistributionAdapter`].
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -7,7 +9,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use super::{json_file, AdapterError, DistributionAdapter};
-use crate::domain::distribution::{DistributionMessage, DistributionReceipt};
+use crate::domain::mail::{DistributionMessage, DistributionReceipt};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +64,8 @@ mod tests {
         DistributionMessage {
             to: to.iter().map(|s| s.to_string()).collect(),
             subject: "תחקיר 056-2026".into(),
-            body: "גוף ההודעה".into(),
+            body_text: "גוף ההודעה".into(),
+            body_html: "<div dir=\"rtl\">גוף ההודעה</div>".into(),
         }
     }
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-save-station"
+description = "Enables the admin_save_station command without any pre-configured scope."
+commands.allow = ["admin_save_station"]
+
+[[permission]]
+identifier = "deny-admin-save-station"
+description = "Denies the admin_save_station command without any pre-configured scope."
+commands.deny = ["admin_save_station"]

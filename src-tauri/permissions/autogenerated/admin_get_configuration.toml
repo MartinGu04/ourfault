@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-get-configuration"
+description = "Enables the admin_get_configuration command without any pre-configured scope."
+commands.allow = ["admin_get_configuration"]
+
+[[permission]]
+identifier = "deny-admin-get-configuration"
+description = "Denies the admin_get_configuration command without any pre-configured scope."
+commands.deny = ["admin_get_configuration"]

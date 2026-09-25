@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-set-section-active"
+description = "Enables the admin_set_section_active command without any pre-configured scope."
+commands.allow = ["admin_set_section_active"]
+
+[[permission]]
+identifier = "deny-admin-set-section-active"
+description = "Denies the admin_set_section_active command without any pre-configured scope."
+commands.deny = ["admin_set_section_active"]

@@ -2,9 +2,11 @@
 //! Services receive their dependencies explicitly, which keeps them free of
 //! Tauri and straightforward to test with in-memory adapters.
 
+pub mod configuration;
 pub mod distribution;
+pub mod drafts;
+pub mod export;
 pub mod investigations;
-pub mod systems;
 
 use chrono::{Datelike, Local, NaiveDate, SecondsFormat};
 
@@ -35,6 +37,11 @@ pub(crate) mod testing {
     use chrono::NaiveDate;
 
     pub(crate) fn now() -> Now {
-        Now { date: NaiveDate::from_ymd_opt(2026, 9, 23).unwrap(), timestamp: "2026-09-23T10:00:00+03:00".into() }
+        now_at("10:00")
+    }
+
+    /// 23 September 2026 at `time` ("HH:MM").
+    pub(crate) fn now_at(time: &str) -> Now {
+        Now { date: NaiveDate::from_ymd_opt(2026, 9, 23).unwrap(), timestamp: format!("2026-09-23T{time}:00+03:00") }
     }
 }

@@ -5,17 +5,32 @@ import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 
 import { ApiError, toAppError } from './errors';
 import type {
-  CurrentUser,
+  AdminConfiguration,
+  Advisory,
+  Completion,
   DistributionMessage,
-  Investigation,
-  InvestigationDraft,
+  Draft,
+  DraftContent,
+  DraftStep,
+  DraftSummary,
+  ExportedFile,
+  InvestigationDetails,
   InvestigationNumber,
   InvestigationSummary,
+  MailTemplate,
   PastedRows,
+  PublicationSettings,
+  Review,
+  SectionDefinition,
+  SectionInput,
   SentDistribution,
-  StoredInvestigation,
+  Session,
+  Station,
+  StationInput,
   System,
   SystemInput,
+  WorkMode,
+  Workspace,
 } from './types';
 
 async function call<T>(command: string, args?: InvokeArgs): Promise<T> {
@@ -27,23 +42,47 @@ async function call<T>(command: string, args?: InvokeArgs): Promise<T> {
 }
 
 export const api = {
-  getSession: () => call<CurrentUser>('get_session'),
-  listRecentInvestigations: () => call<InvestigationSummary[]>('list_recent_investigations'),
-  findInvestigation: (query: string) => call<StoredInvestigation>('find_investigation', { query }),
+  getSession: () => call<Session>('get_session'),
+  enterWorkMode: (mode: WorkMode) => call<Session>('enter_work_mode', { mode }),
+  leaveWorkMode: () => call<Session>('leave_work_mode'),
+  getWorkspace: () => call<Workspace>('get_workspace'),
+
+  listDrafts: () => call<DraftSummary[]>('list_drafts'),
+  getDraft: (id: string) => call<Draft>('get_draft', { id }),
+  createDraft: (content: DraftContent, step: DraftStep) => call<Draft>('create_draft', { content, step }),
+  saveDraft: (id: string, revision: number, content: DraftContent, step: DraftStep) =>
+    call<Draft>('save_draft', { id, revision, content, step }),
+  deleteDraft: (id: string, revision: number) => call<void>('delete_draft', { id, revision }),
 
   /** Parses text the operator pasted (rows copied from Excel). */
   parsePastedRows: (text: string) => call<PastedRows>('parse_pasted_rows', { text }),
+  assessDraft: (content: DraftContent) => call<Advisory[]>('assess_draft', { content }),
+  reviewDraft: (content: DraftContent) => call<Review>('review_draft', { content }),
+  /** Idempotent: a draft that was already published returns that investigation. */
+  completeDraft: (id: string, revision: number) => call<Completion>('complete_draft', { id, revision }),
 
-  listActiveSystems: () => call<System[]>('list_active_systems'),
-  peekNextInvestigationNumber: () => call<InvestigationNumber>('peek_next_investigation_number'),
-  previewInvestigation: (draft: InvestigationDraft) => call<Investigation>('preview_investigation', { draft }),
-  createInvestigation: (draft: InvestigationDraft) => call<StoredInvestigation>('create_investigation', { draft }),
+  listRecentInvestigations: () => call<InvestigationSummary[]>('list_recent_investigations'),
+  searchInvestigations: (query: string) => call<InvestigationSummary[]>('search_investigations', { query }),
+  getInvestigation: (number: InvestigationNumber) => call<InvestigationDetails>('get_investigation', { number }),
 
   composeDistribution: (number: InvestigationNumber) => call<DistributionMessage>('compose_distribution', { number }),
   distributeInvestigation: (number: InvestigationNumber) =>
     call<SentDistribution>('distribute_investigation', { number }),
+  exportInvestigationPdf: (number: InvestigationNumber) => call<ExportedFile>('export_investigation_pdf', { number }),
+  /** Requires the operator's confirmation that the file may be incomplete. */
+  exportDraftPdf: (id: string, confirmIncomplete: boolean) =>
+    call<ExportedFile>('export_draft_pdf', { id, confirmIncomplete }),
 
-  adminListSystems: () => call<System[]>('admin_list_systems'),
+  adminGetConfiguration: () => call<AdminConfiguration>('admin_get_configuration'),
   adminSaveSystem: (input: SystemInput) => call<System>('admin_save_system', { input }),
   adminSetSystemActive: (id: string, active: boolean) => call<System>('admin_set_system_active', { id, active }),
+  adminSaveStation: (input: StationInput) => call<Station>('admin_save_station', { input }),
+  adminSetStationActive: (id: string, active: boolean) => call<Station>('admin_set_station_active', { id, active }),
+  adminSaveSection: (input: SectionInput) => call<SectionDefinition>('admin_save_section', { input }),
+  adminSetSectionActive: (id: string, active: boolean) =>
+    call<SectionDefinition>('admin_set_section_active', { id, active }),
+  adminMoveSection: (id: string, offset: -1 | 1) => call<string[]>('admin_move_section', { id, offset }),
+  adminSaveMailTemplate: (input: MailTemplate) => call<MailTemplate>('admin_save_mail_template', { input }),
+  adminSavePublication: (input: PublicationSettings) =>
+    call<PublicationSettings>('admin_save_publication', { input }),
 };

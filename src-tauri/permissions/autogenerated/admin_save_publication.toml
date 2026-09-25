@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-save-publication"
+description = "Enables the admin_save_publication command without any pre-configured scope."
+commands.allow = ["admin_save_publication"]
+
+[[permission]]
+identifier = "deny-admin-save-publication"
+description = "Denies the admin_save_publication command without any pre-configured scope."
+commands.deny = ["admin_save_publication"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-admin-set-station-active"
+description = "Enables the admin_set_station_active command without any pre-configured scope."
+commands.allow = ["admin_set_station_active"]
+
+[[permission]]
+identifier = "deny-admin-set-station-active"
+description = "Denies the admin_set_station_active command without any pre-configured scope."
+commands.deny = ["admin_set_station_active"]

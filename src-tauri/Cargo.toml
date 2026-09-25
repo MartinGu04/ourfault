@@ -27,6 +27,12 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # URL parsing for validation only - the application never fetches URLs.
 url = "2"
 thiserror = "2"
+# PDF export (src/render/pdf): glyph lookup and metrics of the bundled font,
+# right-to-left reordering of mixed Hebrew/Latin lines, and stream compression.
+# Small, dependency-free crates instead of a browser or typesetting engine.
+ttf-parser = { version = "0.25", default-features = false, features = ["std"] }
+unicode-bidi = { version = "0.3", default-features = false, features = ["hardcoded-data", "std"] }
+miniz_oxide = "0.8"
 
 [profile.release]
 lto = true

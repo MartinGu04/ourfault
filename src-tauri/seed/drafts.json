@@ -1,0 +1,51 @@
+[
+  {
+    "id": "d-20260923-00000000000000a1",
+    "revision": 1,
+    "createdAt": "2026-09-23T08:45:00+03:00",
+    "createdBy": "מפעיל הדגמה",
+    "updatedAt": "2026-09-23T09:10:00+03:00",
+    "step": "technical",
+    "content": {
+      "activity": {
+        "name": "בלט רומני",
+        "activityType": "mission",
+        "systemIds": [
+          "system-1",
+          "system-2",
+          "system-3"
+        ],
+        "status": "completed",
+        "plannedStart": "2026-09-22T08:00",
+        "plannedEnd": "2026-09-22T12:00",
+        "actualStart": "2026-09-22T08:14",
+        "actualEnd": "2026-09-22T12:35",
+        "nightActivity": false,
+        "seniorStaffing": true
+      },
+      "sections": {
+        "section-1": [
+          {
+            "f1": "ערוץ ראשי",
+            "f3": "station-1"
+          },
+          {
+            "f1": "ערוץ גיבוי",
+            "f2": "לפי הצורך",
+            "f3": "station-2"
+          }
+        ],
+        "section-2": [
+          {
+            "f1": "יחידה 1",
+            "f3": "4X-DMD",
+            "f4": "21",
+            "f5": "מקטע א"
+          }
+        ]
+      },
+      "rows": [],
+      "preliminaryCheckUrl": ""
+    }
+  }
+]

@@ -7,25 +7,21 @@ const system: System = {
   id: 'system-1',
   name: 'מערכת אלפא',
   active: false,
-  template: { name: 'תבנית', title: 'תחקיר', sections: ['רקע', 'ממצאים'] },
   distributionList: ['a@example.com', 'b@example.com'],
-  sharepoint: { siteUrl: 'https://sharepoint.example.com/sites/alpha', list: 'Investigations' },
 };
 
 describe('systemForm', () => {
   it('round-trips a system through the form', () => {
-    expect(inputFromForm(system.id, system.active, formFromSystem(system))).toEqual(system);
+    expect(inputFromForm(system.id, formFromSystem(system))).toEqual({
+      id: 'system-1',
+      name: 'מערכת אלפא',
+      distributionList: ['a@example.com', 'b@example.com'],
+    });
   });
 
-  it('splits multi-line fields and ignores blank lines', () => {
-    const values = {
-      ...formFromSystem(system),
-      sections: ' רקע \n\n לקחים ',
-      distributionList: 'a@example.com, b@example.com;\nc@example.com\n',
-    };
-    const input = inputFromForm(null, true, values);
+  it('accepts addresses separated by lines, commas or semicolons', () => {
+    const input = inputFromForm(null, { name: 'x', distributionList: 'a@example.com, b@example.com;\nc@example.com\n' });
     expect(input.id).toBeNull();
-    expect(input.template.sections).toEqual(['רקע', 'לקחים']);
     expect(input.distributionList).toEqual(['a@example.com', 'b@example.com', 'c@example.com']);
   });
 });

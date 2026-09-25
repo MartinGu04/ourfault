@@ -111,3 +111,118 @@ export function Ltr({ children, className }: { children: ReactNode; className?: 
     </bdi>
   );
 }
+
+interface SegmentedProps<T extends string | boolean> {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T | null;
+  onChange: (value: T) => void;
+  invalid?: boolean;
+  describedBy?: string | undefined;
+}
+
+/** A small set of mutually exclusive choices (e.g. yes / no). Nothing is preselected. */
+export function Segmented<T extends string | boolean>({
+  label,
+  options,
+  value,
+  onChange,
+  invalid,
+  describedBy,
+}: SegmentedProps<T>) {
+  return (
+    <div
+      className={invalid ? 'segmented segmented-invalid' : 'segmented'}
+      role="radiogroup"
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+    >
+      {options.map((option) => (
+        <button
+          key={String(option.value)}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          className="segmented-option"
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export const YES_NO: readonly { value: boolean; label: string }[] = [
+  { value: true, label: 'כן' },
+  { value: false, label: 'לא' },
+];
+
+interface ChipsProps {
+  label: string;
+  options: readonly { value: string; label: string; disabled?: boolean }[];
+  selected: readonly string[];
+  onChange: (selected: string[]) => void;
+  invalid?: boolean;
+  describedBy?: string | undefined;
+}
+
+/** Multi-select as toggle chips, in the order the options are given. */
+export function Chips({ label, options, selected, onChange, invalid, describedBy }: ChipsProps) {
+  const toggle = (value: string) =>
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  return (
+    <div
+      className={invalid ? 'chips chips-invalid' : 'chips'}
+      role="group"
+      aria-label={label}
+      aria-describedby={describedBy}
+    >
+      {options.map((option) => {
+        const checked = selected.includes(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            className="chip"
+            disabled={option.disabled && !checked}
+            onClick={() => toggle(option.value)}
+          >
+            {checked && <Icon name="check" size={14} />}
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface TabsProps<T extends string> {
+  label: string;
+  tabs: readonly { key: T; label: string; badge?: ReactNode }[];
+  current: T;
+  onChange: (key: T) => void;
+}
+
+export function Tabs<T extends string>({ label, tabs, current, onChange }: TabsProps<T>) {
+  return (
+    <div className="tabs" role="tablist" aria-label={label}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          role="tab"
+          aria-selected={tab.key === current}
+          className="tab"
+          onClick={() => onChange(tab.key)}
+        >
+          {tab.label}
+          {tab.badge}
+        </button>
+      ))}
+    </div>
+  );
+}
