@@ -364,7 +364,7 @@ kbd {
 }
 
 .document {
-  max-inline-size: 860px;
+  max-inline-size: 1040px;
   margin-inline: auto;
   padding: 48px 56px 56px;
   background: var(--surface);
@@ -442,7 +442,7 @@ kbd {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 10px;
-  max-inline-size: 860px;
+  max-inline-size: 1040px;
   margin: 0 auto 16px;
   padding: 10px 14px;
   border: 1px solid var(--border);
@@ -634,13 +634,6 @@ kbd {
 }
 
 /* ---- Admin ---- */
-
-.admin-layout {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  align-items: start;
-  gap: 20px;
-}
 
 .editor {
   border: 1px solid var(--border);
@@ -901,7 +894,26 @@ kbd {
 }
 
 .form-page-wide {
-  max-inline-size: 960px;
+  max-inline-size: none;
+}
+
+/* On a wide window the activity details and the two time groups sit side
+   by side instead of leaving the right half of the screen empty. */
+@media (min-width: 1280px) {
+  .form-page-wide {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .form-page-wide .time-groups {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-hint,
+.paste-note,
+.empty-text {
+  max-inline-size: var(--text-max);
 }
 
 .form-card-title {
@@ -971,7 +983,7 @@ kbd {
 }
 
 .review > .form-card {
-  max-inline-size: 760px;
+  max-inline-size: 960px;
 }
 
 .review-summary {
@@ -1132,7 +1144,7 @@ kbd {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: clamp(240px, 22%, 340px) minmax(0, 1fr);
   align-items: start;
   gap: 20px;
 }
@@ -1201,7 +1213,7 @@ kbd {
 .setup {
   display: grid;
   gap: 16px;
-  max-inline-size: 760px;
+  max-inline-size: 960px;
 }
 
 .setup-list {
@@ -1348,7 +1360,7 @@ kbd {
 .publishing {
   display: grid;
   gap: 20px;
-  max-inline-size: 860px;
+  max-inline-size: 1040px;
 }
 
 .placeholder-list {
@@ -1400,4 +1412,42 @@ kbd {
 
 .issue-group .issue-list li:first-child {
   border-block-start: 0;
+}
+
+.issue-row {
+  display: flex;
+  align-items: center;
+}
+
+.issue-row .issue {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.issue-action {
+  padding-inline: 12px;
+}
+
+.issue-group-title .icon {
+  color: var(--danger);
+}
+
+.issue-group-warning .issue-group-title .icon,
+.issue-group-warning .issue-message {
+  color: #8a5a00;
+}
+
+.issue-group-warning .issue-group-count {
+  background: #fff3d6;
+  color: #7a5300;
+}
+
+.issue-group-info .issue-group-title .icon,
+.issue-group-info .issue-message {
+  color: var(--accent-text);
+}
+
+.issue-group-info .issue-group-count {
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
 }

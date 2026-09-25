@@ -6,7 +6,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { Navigation } from '../../App';
 import { api } from '../../api/client';
-import { ApiError, errorMessage } from '../../api/errors';
+import { ApiError, errorMessage, PASTE_TOO_LARGE_MESSAGE } from '../../api/errors';
 import type { Draft, DraftContent, DraftStep, Review, Workspace } from '../../api/types';
 import { rowsLabel } from '../../lib/format';
 import { describeField, STEPS } from '../../lib/labels';
@@ -17,6 +17,7 @@ import { ExportPdfButton, type Notice } from '../investigation/ExportPdfButton';
 import { ActivityStep } from './ActivityStep';
 import { Autosaver, type SaveStatus } from './autosave';
 import { AutosaveIndicator } from './AutosaveIndicator';
+import { NOT_TABULAR_MESSAGE, type ClipboardRead } from './clipboard';
 import { PasteRowsStep } from './PasteRowsStep';
 import { ReviewStep } from './ReviewStep';
 import { Stepper } from './Stepper';
@@ -141,9 +142,13 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
     }
   }
 
-  const pasteText = (text: string) => {
+  const pasteText = (read: ClipboardRead) => {
     if (busy) return;
-    void run('paste', async () => dispatch({ type: 'rowsPasted', pasted: await api.parsePastedRows(text) }));
+    if (read.kind === 'rejected') {
+      setError(read.reason === 'too_large' ? PASTE_TOO_LARGE_MESSAGE : NOT_TABULAR_MESSAGE);
+      return;
+    }
+    void run('paste', async () => dispatch({ type: 'rowsPasted', pasted: await api.parsePastedRows(read.text) }));
   };
 
   const goTo = (step: DraftStep) => {

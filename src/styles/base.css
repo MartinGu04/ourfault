@@ -39,8 +39,12 @@
 
   --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 
-  --page-padding-inline: 40px;
-  --page-max: 1160px;
+  /* Pages use the width of a maximised desktop window, with side padding
+     that shrinks on smaller windows. Text blocks keep their own, narrower
+     measure (see --text-max). */
+  --page-padding-inline: clamp(16px, 2.5vw, 48px);
+  --page-max: 1680px;
+  --text-max: 72ch;
 
   color-scheme: light;
   font-family: var(--font);
@@ -212,7 +216,7 @@ bdi[dir='ltr'] {
 }
 
 .page-narrow {
-  max-inline-size: 920px;
+  max-inline-size: 1240px;
 }
 
 .page-toolbar {
@@ -242,7 +246,7 @@ bdi[dir='ltr'] {
 
 .page-subtitle {
   margin-block-start: 6px;
-  max-inline-size: 680px;
+  max-inline-size: var(--text-max);
   color: var(--text-2);
   font-size: 15px;
 }

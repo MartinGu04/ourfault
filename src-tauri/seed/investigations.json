@@ -9,7 +9,10 @@
       "activity": {
         "name": "אימון חורף",
         "activityType": "training",
-        "systemIds": ["system-3", "system-4"],
+        "systemIds": [
+          "system-3",
+          "system-4"
+        ],
         "status": "completed",
         "plannedStart": "2025-12-18T18:00",
         "plannedEnd": "2025-12-18T23:00",
@@ -20,15 +23,37 @@
       },
       "sections": {
         "section-1": [
-          { "f1": "ערוץ צפוני", "f3": "station-3" },
-          { "f1": "ערוץ דרומי", "f2": "גיבוי", "f3": "station-4" }
+          {
+            "f1": "ערוץ צפוני",
+            "f3": "station-3"
+          },
+          {
+            "f1": "ערוץ דרומי",
+            "f2": "גיבוי",
+            "f3": "station-4"
+          }
         ],
-        "section-2": [{ "f1": "יחידה 7", "f3": "4X-DMO", "f5": "מקטע ג" }],
-        "section-3": [{ "f1": "14", "f2": false, "f5": "אימון לילה ללא חריגות" }]
+        "section-2": [
+          {
+            "f1": "יחידה 7",
+            "f3": "4X-DMO",
+            "f5": "מקטע ג"
+          }
+        ]
       },
       "rows": [
-        { "time": "21:04", "from": "עמדה 5", "to": "מוקד מבצעים", "description": "התרעת שווא ממערכת גמא בגזרה המערבית." },
-        { "time": "21:10", "from": "מוקד מבצעים", "to": "תורן טכני", "description": "התבקשה בדיקת רגישות החיישן." }
+        {
+          "time": "21:04",
+          "from": "עמדה 5",
+          "to": "מוקד מבצעים",
+          "description": "התרעת שווא ממערכת גמא בגזרה המערבית."
+        },
+        {
+          "time": "21:10",
+          "from": "מוקד מבצעים",
+          "to": "תורן טכני",
+          "description": "התבקשה בדיקת רגישות החיישן."
+        }
       ],
       "preliminaryCheckUrl": "https://checks.example.com/runs/3310"
     }
@@ -43,7 +68,9 @@
       "activity": {
         "name": "רוח קלה",
         "activityType": "experiment",
-        "systemIds": ["system-1"],
+        "systemIds": [
+          "system-1"
+        ],
         "status": "completed",
         "plannedStart": "2026-09-07T08:00",
         "plannedEnd": "2026-09-07T12:00",
@@ -53,13 +80,27 @@
         "seniorStaffing": true
       },
       "sections": {
-        "section-1": [{ "f1": "ערוץ ניסוי", "f3": "station-1" }],
-        "section-2": [],
-        "section-3": [{ "f1": "6", "f2": true, "f3": ["תקשורת"], "f4": "system-1" }]
+        "section-1": [
+          {
+            "f1": "ערוץ ניסוי",
+            "f3": "station-1"
+          }
+        ],
+        "section-2": []
       },
       "rows": [
-        { "time": "09:02", "from": "מוקד מבצעים", "to": "עמדה 2", "description": "אובדן קשר רגעי עם מערכת אלפא." },
-        { "time": "09:06", "from": "עמדה 2", "to": "מוקד מבצעים", "description": "הקשר חודש לאחר מעבר לערוץ גיבוי." }
+        {
+          "time": "09:02",
+          "from": "מוקד מבצעים",
+          "to": "עמדה 2",
+          "description": "אובדן קשר רגעי עם מערכת אלפא."
+        },
+        {
+          "time": "09:06",
+          "from": "עמדה 2",
+          "to": "מוקד מבצעים",
+          "description": "הקשר חודש לאחר מעבר לערוץ גיבוי."
+        }
       ],
       "preliminaryCheckUrl": "https://checks.example.com/runs/4402"
     }
@@ -75,7 +116,10 @@
         "name": "גשר אבן",
         "activityType": "other",
         "activityTypeOther": "תרגיל משולב",
-        "systemIds": ["system-2", "system-3"],
+        "systemIds": [
+          "system-2",
+          "system-3"
+        ],
         "status": "completed",
         "plannedStart": "2026-09-14T09:00",
         "plannedEnd": "2026-09-14T17:00",
@@ -86,18 +130,44 @@
       },
       "sections": {
         "section-1": [
-          { "f1": "ערוץ ראשי", "f3": "station-2" },
-          { "f1": "ערוץ משני", "f3": "station-3" }
+          {
+            "f1": "ערוץ ראשי",
+            "f3": "station-2"
+          },
+          {
+            "f1": "ערוץ משני",
+            "f3": "station-3"
+          }
         ],
         "section-2": [
-          { "f1": "יחידה 3", "f2": "קבוצה א", "f3": "4X-DMA", "f4": "12", "f5": "מקטע א" },
-          { "f1": "יחידה 4", "f3": "4X-DMB", "f4": "15", "f5": "מקטע ב" }
-        ],
-        "section-3": [{ "f1": "22", "f2": false, "f4": "system-2" }]
+          {
+            "f1": "יחידה 3",
+            "f2": "קבוצה א",
+            "f3": "4X-DMA",
+            "f4": "12",
+            "f5": "מקטע א"
+          },
+          {
+            "f1": "יחידה 4",
+            "f3": "4X-DMB",
+            "f4": "15",
+            "f5": "מקטע ב"
+          }
+        ]
       },
       "rows": [
-        { "time": "10:15", "from": "מוקד מבצעים", "to": "עמדה 4", "description": "עיכוב בהעברת נתונים בין מערכת בטא למערכת גמא." },
-        { "time": "10:40", "from": "תורן טכני", "to": "מוקד מבצעים", "description": "בוצע אתחול לממשק. הנתונים זורמים כסדרם." }
+        {
+          "time": "10:15",
+          "from": "מוקד מבצעים",
+          "to": "עמדה 4",
+          "description": "עיכוב בהעברת נתונים בין מערכת בטא למערכת גמא."
+        },
+        {
+          "time": "10:40",
+          "from": "תורן טכני",
+          "to": "מוקד מבצעים",
+          "description": "בוצע אתחול לממשק. הנתונים זורמים כסדרם."
+        }
       ],
       "preliminaryCheckUrl": "https://checks.example.com/runs/4450"
     }
@@ -112,7 +182,11 @@
       "activity": {
         "name": "חצות כחולה",
         "activityType": "mission",
-        "systemIds": ["system-1", "system-2", "system-3"],
+        "systemIds": [
+          "system-1",
+          "system-2",
+          "system-3"
+        ],
         "status": "active",
         "plannedStart": "2026-09-20T22:00",
         "plannedEnd": "2026-09-21T04:00",
@@ -122,13 +196,33 @@
         "seniorStaffing": true
       },
       "sections": {
-        "section-1": [{ "f1": "ערוץ לילה", "f3": "station-1" }],
-        "section-2": [{ "f1": "יחידה 9", "f3": "4X-DMC", "f5": "מקטע ב" }],
-        "section-3": [{ "f1": "31", "f2": true, "f3": ["חומרה", "נוהל"], "f4": "system-3" }]
+        "section-1": [
+          {
+            "f1": "ערוץ לילה",
+            "f3": "station-1"
+          }
+        ],
+        "section-2": [
+          {
+            "f1": "יחידה 9",
+            "f3": "4X-DMC",
+            "f5": "מקטע ב"
+          }
+        ]
       },
       "rows": [
-        { "time": "23:12", "from": "עמדה 1", "to": "מוקד מבצעים", "description": "תקלת חומרה ביחידת קצה של מערכת גמא." },
-        { "time": "23:30", "from": "מוקד מבצעים", "to": "עמדה 1", "description": "אושרה המשך הפעילות במתכונת מצומצמת." }
+        {
+          "time": "23:12",
+          "from": "עמדה 1",
+          "to": "מוקד מבצעים",
+          "description": "תקלת חומרה ביחידת קצה של מערכת גמא."
+        },
+        {
+          "time": "23:30",
+          "from": "מוקד מבצעים",
+          "to": "עמדה 1",
+          "description": "אושרה המשך הפעילות במתכונת מצומצמת."
+        }
       ],
       "preliminaryCheckUrl": "https://checks.example.com/runs/4471"
     }

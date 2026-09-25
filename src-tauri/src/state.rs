@@ -269,14 +269,12 @@ mod tests {
         rows.remove(2); // the operator removes an unrelated row while reviewing
         content.rows = rows.clone();
         content.preliminary_check_url = "https://checks.example.com/runs/4480".into();
-        content.sections.insert(
-            "section-3".into(),
-            vec![serde_json::from_str(r#"{"f1": "18", "f2": false, "f4": "system-2"}"#).unwrap()],
-        );
         let saved = drafts.save(&draft.id, draft.revision, content, DraftStep::Review, &now_at("10:30")).unwrap();
 
         let review = investigations.review(&saved.content, &now()).unwrap();
-        assert_eq!(review.issues, vec![], "{:?}", review.issues);
+        let errors: Vec<_> =
+            review.advisories.iter().filter(|a| a.severity == crate::domain::advisories::Severity::Error).collect();
+        assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(review.expected_number.unwrap().to_string(), "056-2026", "follows the seeded 055-2026");
 
         let created = investigations.complete(&saved.id, saved.revision, &now(), "op").unwrap().investigation;

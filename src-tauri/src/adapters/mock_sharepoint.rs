@@ -242,6 +242,20 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn pasted_markup_is_escaped_in_the_list_item_body() {
+        let store = store();
+        let mut hostile = investigation(60, 2026);
+        hostile.rows[0].description = "<script>alert('x')</script>".into();
+        hostile.rows[1].from = "<img src=x onerror=alert(1)>".into();
+        publish(&store, &hostile).unwrap();
+        let body = store.body_html(hostile.number).unwrap();
+        assert!(!body.contains("<script"), "{body}");
+        assert!(!body.contains("<img"));
+        assert!(body.contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;"));
+        assert!(body.contains("&lt;img src=x onerror=alert(1)&gt;"));
+    }
+
+    #[test]
     fn a_draft_is_published_at_most_once() {
         let store = store();
         let first = investigation(56, 2026).with_source_draft("d-1");

@@ -156,7 +156,7 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
   switch (field.kind) {
     case 'text':
       return (
-        <input className="input" aria-label={label} aria-invalid={invalid} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} />
+        <input className="input" aria-label={label} aria-invalid={invalid} value={text} maxLength={4000} onChange={(e) => setText(e.target.value)} />
       );
     case 'number':
       return (

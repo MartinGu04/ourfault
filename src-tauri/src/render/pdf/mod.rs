@@ -520,6 +520,14 @@ mod tests {
     }
 
     #[test]
+    fn pasted_markup_is_drawn_as_literal_text() {
+        let mut investigation = published();
+        investigation.investigation.rows[0].description = "<script>alert('x')</script>".into();
+        let (_, trace) = PdfRenderer::render_traced(&view_of(&investigation));
+        assert!(trace.iter().any(|line| line == "<script>alert('x')</script>"));
+    }
+
+    #[test]
     fn drafts_are_watermarked_on_every_page() {
         let draft = DraftContent {
             rows: (0..120)

@@ -91,8 +91,11 @@ mod tests {
         assert!(configuration.stations.iter().any(|s| !s.active), "a deactivated station");
         assert!(configuration.mail.validated().is_ok());
         assert!(configuration.publication.validated().is_ok());
-        let modes: Vec<SectionMode> = configuration.sections.iter().map(|s| s.mode).collect();
-        assert!(modes.contains(&SectionMode::Single) && modes.contains(&SectionMode::Repeating));
+        // Only the two real-world table layouts; their names are neutral
+        // placeholders the administrator renames during setup.
+        let names: Vec<&str> = configuration.sections.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["פרטים טכניים — תחנות", "פרטי כלים"]);
+        assert!(configuration.sections.iter().all(|s| s.mode == SectionMode::Repeating));
         let addresses = configuration.systems.iter().flat_map(|s| &s.distribution_list);
         assert!(addresses.clone().all(|a| a.ends_with("@example.com")));
 

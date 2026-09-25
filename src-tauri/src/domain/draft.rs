@@ -15,7 +15,7 @@ use super::sections::{SectionValues, MAX_SECTION_ROWS};
 
 /// Upper bound for one serialised draft. Real drafts are far smaller; the
 /// limit protects storage from runaway input.
-pub const MAX_DRAFT_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_DRAFT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_DRAFT_SECTIONS: usize = 50;
 const MAX_DRAFT_ID_CHARS: usize = 64;
 

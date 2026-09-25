@@ -110,6 +110,32 @@ Rules worth knowing:
   rewrites history.
 - Enums carry no display text; labels are a UI or rendering concern.
 
+### Advisories (errors, warnings, information)
+
+The review step lists deterministic findings in three severities
+(`domain/advisories.rs`); codes are language-neutral message keys, worded by
+the UI:
+
+| Severity | Blocks completion | Rules |
+| --- | --- | --- |
+| Error | yes | every validation error: missing required values, invalid values, an end before its start (`end_before_start`) |
+| Warning | no | `night_overlap_not_marked`: *night activity* answered "no" while the planned or actual period overlaps the night window |
+| Info | no | `actual_started_before_plan`, `actual_started_after_plan`, `actual_ended_after_plan` |
+
+- Planned vs. actual differences are never errors: execution may start
+  before the plan (e.g. planned 15/09 02:43, actual 14/09 02:45). Differences
+  up to 15 minutes (`PLAN_DEVIATION_TOLERANCE_MINUTES`) are not reported.
+- **Night window**: stored in the configuration (`nightWindow`, default
+  20:00 → 06:00, seeded; files written before it existed get the default),
+  ready to be edited from the admin area later. Night hours and periods are
+  half-open: an activity ending at 20:00 or starting at 06:00 does not touch
+  them. The overlap check works across midnight and over any number of
+  days; a period of 24 hours or more always overlaps.
+- OurFault never changes the operator's answer. A multi-day activity will
+  overlap night hours without being a "night activity"; the warning only
+  asks the operator to check. The review offers a one-click
+  *סמן כמשימת לילה* next to the warning.
+
 ### Lifecycle
 
 `Draft → Completed → Distributed (→ Distributed again)`. A draft lives in the
@@ -131,10 +157,12 @@ Multi Select, Station, System. Select fields carry their options.
 - Removing a field removes it from the configuration only; completed
   investigations keep their snapshot, and drafts simply ignore values of
   unknown fields.
-- The seed contains the two real-world table layouts with placeholder labels
-  (`כותרת 1`, `כותרת 2`), in their required order
-  (`כותרת 1 | כותרת 2 | מס׳ זנב | מס׳ קרון | מקטע`). No label is referenced by
-  code; the real names are set during setup.
+- The seed contains only the two real-world table layouts, with neutral,
+  editable names (*פרטים טכניים — תחנות*, *פרטי כלים*) and placeholder
+  column labels (`כותרת 1`, `כותרת 2`) in their required order
+  (`כותרת 1 | כותרת 2 | מס׳ זנב | מס׳ קרון | מקטע`, segment last). No section
+  or label name is referenced by code; the real names are set during setup.
+  Single-record sections remain supported but are not seeded.
 
 ## Drafts and autosave
 
@@ -181,6 +209,35 @@ mark (that write may fail after publication succeeded):
      investigation for the draft is detected before anything is written.
      `.drafts/<id>.marker` indexes draft → number; without it, the records
      themselves are scanned.
+
+### Clipboard intake
+
+The chronology paste stays operator-driven (select in Excel → copy → paste),
+with a defensive intake:
+
+- The UI reads only the `text/plain` clipboard flavour
+  (`features/wizard/clipboard.ts`); HTML, images and files are never read.
+  An empty clipboard, an image, a file or non-text content is rejected with
+  *לא זוהה מידע טבלאי מיומן המבצעים. יש להעתיק שורות מ-Excel ולהדביק אותן כאן.*
+- The Rust parser (`domain/log_rows.rs`) accepts only tab-separated rows:
+  at least the four log columns, and every row must carry them (Excel copies
+  a rectangular selection, so prose with a stray tab is rejected as
+  `not_tabular`).
+- Limits, chosen to fit a long real chronology several times over while
+  keeping the review table, drafts and PDFs responsive:
+
+  | Limit | Value | Why |
+  | --- | --- | --- |
+  | Paste size | 2 MiB | ~10,000 typical log rows of text; checked in the UI before sending and again in Rust |
+  | Rows per paste and per investigation | 2,000 | a very busy log day; PR #1 had 500 |
+  | Columns per row | 64 | the log has five; room for selecting whole sheet rows |
+  | Characters per cell | 4,000 | long free-text descriptions (PR #1 had 2,000) |
+
+- Cells keep Hebrew, Latin, punctuation, directional marks and line breaks
+  (Excel's quoted multi-line cells). C0/C1 control characters, invisible
+  bidirectional embeddings/overrides/isolates (U+202A–U+202E,
+  U+2066–U+2069) and byte-order marks are removed, so text cannot display
+  differently from what it contains.
 
 ## Investigation numbers
 
@@ -313,9 +370,9 @@ data is seeded. Delete them, or the whole data directory, at will.
 | --- | --- |
 | Webview privileges | One capability (`capabilities/main-window.json`) granting only the 29 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
 | Work modes | Admin operations require an `AdminGrant` created only by `AppState::admin()` in admin mode; the access policy can withhold admin mode entirely. |
-| Input | Pasted text is bounded and cleaned (as in PR #1). Draft content has size/row limits on every save. All content is re-validated in Rust on review and completion. Admin configuration is validated in the domain. |
+| Input | Pasted text is bounded and cleaned (see *Clipboard intake*). Draft content has size/row limits on every save (8 MiB). All content is re-validated in Rust on review and completion. Admin configuration is validated in the domain. |
 | File system | The webview never supplies paths. Draft ids are restricted to a safe alphabet; export and publication file names are sanitised (no separators, reserved characters or device names); exports never overwrite. |
-| Content injection | Values are rendered as React text only; no `dangerouslySetInnerHTML`, no `eval`. Generated HTML (SharePoint body, e-mail) escapes every value. |
+| Content injection | User-provided text (including pasted clipboard text) is never interpreted as markup or code. React renders it as text only (no `dangerouslySetInnerHTML`, no `eval`); generated HTML (SharePoint body, e-mail) escapes every value; the PDF draws it as glyphs. Tested with script/markup payloads in the preview, the HTML renderer, the mock SharePoint body and the PDF. No keyword filtering is used or relied on. |
 | Network | No outbound requests anywhere. CSP `connect-src ipc: http://ipc.localhost`. The navigation guard keeps the webview on the app origin. The preliminary-checks link is validated structurally and copied, never opened or fetched. |
 | Concurrency | Revision checks on configuration and drafts; atomic create-if-absent for investigation numbers; at most one investigation per draft (`sourceDraftId`, enforced by the publisher). |
 | Errors | Only codes reach the UI; paths and library errors go to the log. |

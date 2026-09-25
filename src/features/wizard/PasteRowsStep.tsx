@@ -10,13 +10,14 @@ import type { LogRow } from '../../api/types';
 import { rowsLabel } from '../../lib/format';
 import { Banner, Button, Ltr } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
+import { readClipboardText, type ClipboardRead } from './clipboard';
 import { errorFor, type ReviewRow, type WizardAction, type WizardState } from './wizardState';
 
 interface Props {
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
   /** Parses pasted text through the backend and adds the rows. */
-  onPasteText: (text: string) => void;
+  onPasteText: (read: ClipboardRead) => void;
   parsing: boolean;
 }
 
@@ -47,7 +48,7 @@ export function PasteRowsStep({ state, dispatch, onPasteText, parsing }: Props) 
         <p className="paste-note">
           העמודות נקראות לפי סדר היומן: שעה, ממי, למי, תוכן. אם הועתקה גם שורת הכותרות, היא מושמטת.
         </p>
-        <Button variant="subtle" disabled={parsing} onClick={() => onPasteText(demoPaste)}>
+        <Button variant="subtle" disabled={parsing} onClick={() => onPasteText({ kind: 'text', text: demoPaste })}>
           הדבקת שורות לדוגמה
         </Button>
       </div>
@@ -109,9 +110,10 @@ export function PasteRowsStep({ state, dispatch, onPasteText, parsing }: Props) 
 /**
  * Accepts pastes anywhere on the step, except inside the fields used to edit
  * a row (where paste keeps its normal meaning). Only the plain-text flavour
- * of the clipboard is used, and only when the operator pastes.
+ * of the clipboard is used (never HTML, images or files), and only when the
+ * operator pastes.
  */
-function useClipboardPaste(onPasteText: (text: string) => void) {
+function useClipboardPaste(onPasteText: (read: ClipboardRead) => void) {
   const handler = useRef(onPasteText);
   handler.current = onPasteText;
 
@@ -121,8 +123,7 @@ function useClipboardPaste(onPasteText: (text: string) => void) {
       const inEditor = target?.closest('input, textarea, select') && !target.closest('[data-paste-target]');
       if (inEditor) return;
       event.preventDefault();
-      const text = event.clipboardData?.getData('text/plain') ?? '';
-      handler.current(text);
+      handler.current(readClipboardText(event.clipboardData));
     }
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
@@ -202,7 +203,7 @@ function RowEditor({ row, onSave, onCancel }: { row: LogRow; onSave: (row: LogRo
       <input
         className="input"
         value={draft[key]}
-        maxLength={2000}
+        maxLength={4000}
         onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
       />
     </label>
@@ -226,7 +227,7 @@ function RowEditor({ row, onSave, onCancel }: { row: LogRow; onSave: (row: LogRo
           className="input textarea"
           rows={3}
           value={draft.description}
-          maxLength={2000}
+          maxLength={4000}
           onChange={(event) => setDraft({ ...draft, description: event.target.value })}
         />
       </label>

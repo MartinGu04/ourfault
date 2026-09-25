@@ -1,14 +1,14 @@
 // Step 4: the preliminary-checks link, what is still missing, and a preview
 // of the document exactly as it will be created (marked as a draft here).
 
-import { useEffect, useRef, useState, type Dispatch } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
 
 import { api } from '../../api/client';
-import { errorMessage, fieldMessage, MISSING_CODES } from '../../api/errors';
-import type { DraftContent, DraftStep, FieldError, Review, Workspace } from '../../api/types';
+import { advisoryMessage, errorMessage, fieldMessage, MISSING_CODES } from '../../api/errors';
+import type { Advisory, DraftContent, DraftStep, FieldError, Review, Severity, Workspace } from '../../api/types';
 import { issuesLabel } from '../../lib/format';
 import { describeField } from '../../lib/labels';
-import { Banner, Field, Ltr, Spinner } from '../../ui/controls';
+import { Banner, Button, Field, Ltr, Spinner } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { DocumentViewer } from '../investigation/DocumentViewer';
 import { errorFor, type WizardAction, type WizardState } from './wizardState';
@@ -38,7 +38,10 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
           setReview(result);
           setError(null);
           onReview(result);
-          dispatch({ type: 'reviewed', issues: result.issues, expectedNumber: result.expectedNumber });
+          const issues = result.advisories
+            .filter((advisory) => advisory.severity === 'error')
+            .map(({ field, code }) => ({ field, code }));
+          dispatch({ type: 'reviewed', issues, expectedNumber: result.expectedNumber });
         },
         (caught: unknown) => {
           if (current !== generation.current) return;
@@ -54,6 +57,9 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
   const urlError = errorFor(state, 'preliminaryCheckUrl');
   const { missing, invalid } = splitIssues(state.fieldErrors);
   const ready = state.fieldErrors.length === 0;
+  const warnings = review?.advisories.filter((advisory) => advisory.severity === 'warning') ?? [];
+  const notes = review?.advisories.filter((advisory) => advisory.severity === 'info') ?? [];
+  const markNight = () => dispatch({ type: 'activityChanged', patch: { nightActivity: true } });
 
   return (
     <div className="review">
@@ -104,8 +110,23 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
                 </p>
               </div>
             </div>
-            <IssueGroup title="ערכי חובה חסרים" issues={missing} workspace={workspace} onGoTo={onGoTo} />
-            <IssueGroup title="ערכים לא תקינים" issues={invalid} workspace={workspace} onGoTo={onGoTo} />
+            <IssueGroup title="ערכי חובה חסרים" tone="error" issues={missing} workspace={workspace} onGoTo={onGoTo} />
+            <IssueGroup title="ערכים לא תקינים" tone="error" issues={invalid} workspace={workspace} onGoTo={onGoTo} />
+            <IssueGroup
+              title="אזהרות (אינן חוסמות יצירה)"
+              tone="warning"
+              issues={warnings}
+              workspace={workspace}
+              onGoTo={onGoTo}
+              action={(issue) =>
+                issue.code === 'night_overlap_not_marked' ? (
+                  <Button size="normal" onClick={markNight}>
+                    סמן כמשימת לילה
+                  </Button>
+                ) : null
+              }
+            />
+            <IssueGroup title="לידיעה" tone="info" issues={notes} workspace={workspace} onGoTo={onGoTo} />
           </div>
 
           <div className="preview-frame">
@@ -136,30 +157,38 @@ function statusTitle(missing: number, invalid: number): string {
   return `לא ניתן ליצור עדיין: ${parts.join(' · ')}`;
 }
 
+type Finding = FieldError | Advisory;
+
 interface GroupProps {
   title: string;
-  issues: FieldError[];
+  tone: Severity;
+  issues: Finding[];
   workspace: Workspace;
   onGoTo: (step: DraftStep) => void;
+  /** An optional quick fix shown next to a finding. */
+  action?: (issue: Finding) => ReactNode;
 }
 
-function IssueGroup({ title, issues, workspace, onGoTo }: GroupProps) {
+function IssueGroup({ title, tone, issues, workspace, onGoTo, action }: GroupProps) {
   if (issues.length === 0) return null;
   return (
-    <section className="issue-group" aria-label={title}>
+    <section className={`issue-group issue-group-${tone}`} aria-label={title}>
       <h3 className="issue-group-title">
+        <Icon name={tone === 'info' ? 'info' : 'alert'} size={15} />
         {title} <span className="issue-group-count">{issues.length}</span>
       </h3>
       <ul className="issue-list">
         {issues.map((issue, index) => {
           const { label, step } = describeField(issue.field, workspace.sections);
+          const fix = action?.(issue);
           return (
-            <li key={index}>
+            <li key={index} className="issue-row">
               <button type="button" className="issue" onClick={() => onGoTo(step)}>
                 <span className="issue-field">{label}</span>
-                <span className="issue-message">{fieldMessage(issue)}</span>
+                <span className="issue-message">{advisoryMessage({ severity: tone, ...issue })}</span>
                 <Icon name="forward" size={16} />
               </button>
+              {fix && <span className="issue-action">{fix}</span>}
             </li>
           );
         })}

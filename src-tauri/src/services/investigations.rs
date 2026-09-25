@@ -2,11 +2,11 @@ use serde::Serialize;
 
 use super::Now;
 use crate::adapters::{AdapterError, ConfigurationRepository, DraftRepository, InvestigationPublisher, PublishRequest};
+use crate::domain::advisories::{assess_activity, Advisory};
 use crate::domain::draft::{Conversion, Draft, DraftContent};
 use crate::domain::investigation::{Investigation, InvestigationSummary, PublishedInvestigation};
 use crate::domain::investigation_number::InvestigationNumber;
 use crate::domain::lifecycle::Lifecycle;
-use crate::domain::validation::FieldError;
 use crate::error::AppError;
 use crate::render::document::DocumentView;
 
@@ -14,12 +14,14 @@ use crate::render::document::DocumentView;
 const MAX_ALLOCATION_ATTEMPTS: usize = 5;
 const SEARCH_LIMIT: usize = 30;
 
-/// The review step: what is still missing, and the document as it stands.
+/// The review step: what blocks completion, what deserves attention, and the
+/// document as it stands.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Review {
-    /// Empty when the draft can be completed.
-    pub issues: Vec<FieldError>,
+    /// Errors first (they block completion), then warnings and information.
+    /// The draft can be completed when there is no error.
+    pub advisories: Vec<Advisory>,
     /// Always marked as a draft.
     pub document: DocumentView,
     /// The number the investigation would get now. Informational only, and
@@ -79,8 +81,10 @@ impl<'a> InvestigationService<'a> {
         };
         let candidate = expected_number
             .unwrap_or(InvestigationNumber::new(1, now.year()?).map_err(|e| AppError::internal("number", &e))?);
-        let issues = Investigation::build(candidate, content, &configuration).err().unwrap_or_default();
-        Ok(Review { issues, document: DocumentView::from_draft(content, &configuration), expected_number })
+        let errors = Investigation::build(candidate, content, &configuration).err().unwrap_or_default();
+        let mut advisories: Vec<Advisory> = errors.into_iter().map(Advisory::from).collect();
+        advisories.extend(assess_activity(&content.activity, &configuration.night_window));
+        Ok(Review { advisories, document: DocumentView::from_draft(content, &configuration), expected_number })
     }
 
     /// Completes a draft: validates it, allocates the final number and
@@ -231,6 +235,7 @@ pub(crate) mod tests {
     use crate::adapters::json_file::tests::temp_dir;
     use crate::adapters::mock_sharepoint::MockSharePoint;
     use crate::adapters::shared_folder::SharedFolderPublisher;
+    use crate::domain::advisories::Severity;
     use crate::domain::draft::DraftStep;
     use crate::domain::investigation::tests::content;
     use crate::domain::lifecycle::InvestigationStatus;
@@ -267,6 +272,47 @@ pub(crate) mod tests {
         }
     }
 
+    fn errors(review: &Review) -> Vec<&Advisory> {
+        review.advisories.iter().filter(|a| a.severity == Severity::Error).collect()
+    }
+
+    #[test]
+    fn warnings_and_information_do_not_block_completion() {
+        let fixture = Fixture::new();
+        let mut content = content();
+        // Crosses midnight but answered "not a night activity"; started early.
+        content.activity.planned_start = "2026-09-20T20:00".into();
+        content.activity.planned_end = "2026-09-21T02:00".into();
+        content.activity.actual_start = "2026-09-20T19:00".into();
+        content.activity.actual_end = "2026-09-21T01:30".into();
+        content.activity.night_activity = Some(false);
+        let review = fixture.service().review(&content, &now()).unwrap();
+        let found: Vec<(Severity, &str)> = review.advisories.iter().map(|a| (a.severity, a.code)).collect();
+        assert_eq!(
+            found,
+            vec![(Severity::Warning, "night_overlap_not_marked"), (Severity::Info, "actual_started_before_plan")]
+        );
+
+        let draft = fixture.base.service().create(content, DraftStep::Review, &now(), "op").unwrap();
+        let created = fixture.service().complete(&draft.id, 1, &now(), "op").unwrap();
+        assert!(!created.investigation.investigation.activity.night_activity, "the answer is never changed");
+    }
+
+    #[test]
+    fn errors_come_first_and_block_completion() {
+        let fixture = Fixture::new();
+        let mut content = content();
+        content.activity.planned_end = "2026-09-20T07:00".into();
+        content.activity.night_activity = Some(false);
+        content.activity.actual_end = "2026-09-20T21:00".into();
+        let review = fixture.service().review(&content, &now()).unwrap();
+        assert_eq!(review.advisories[0].severity, Severity::Error);
+        assert_eq!(review.advisories[0].code, "end_before_start");
+        assert!(review.advisories.iter().any(|a| a.severity == Severity::Warning));
+        let draft = fixture.base.service().create(content, DraftStep::Review, &now(), "op").unwrap();
+        assert!(matches!(fixture.service().complete(&draft.id, 1, &now(), "op"), Err(AppError::Validation { .. })));
+    }
+
     #[test]
     fn a_draft_does_not_consume_a_number() {
         let fixture = Fixture::new();
@@ -274,7 +320,7 @@ pub(crate) mod tests {
         fixture.draft();
         fixture.draft();
         let review = service.review(&content(), &now()).unwrap();
-        assert!(review.issues.is_empty());
+        assert!(errors(&review).is_empty());
         assert_eq!(review.expected_number.unwrap().to_string(), "001-2026");
         assert!(fixture.sharepoint.list().unwrap().is_empty(), "nothing published");
         assert!(review.document.draft_notice.is_some());
@@ -287,7 +333,7 @@ pub(crate) mod tests {
         incomplete.activity.activity_type = None;
         incomplete.rows.clear();
         let review = fixture.service().review(&incomplete, &now()).unwrap();
-        let fields: Vec<&str> = review.issues.iter().map(|i| i.field.as_str()).collect();
+        let fields: Vec<&str> = errors(&review).iter().map(|i| i.field.as_str()).collect();
         assert_eq!(fields, vec!["activityType", "rows"]);
     }
 
@@ -353,7 +399,7 @@ pub(crate) mod tests {
         let offline = SharedFolderPublisher::new(temp_dir("share").join("not-mounted"));
         let review = fixture.with_publisher(&offline).review(&content(), &now()).unwrap();
         assert_eq!(review.expected_number, None);
-        assert!(review.issues.is_empty());
+        assert!(errors(&review).is_empty());
     }
 
     /// Simulates another workstation publishing between our number lookup

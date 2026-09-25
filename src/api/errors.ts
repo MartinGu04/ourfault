@@ -42,13 +42,17 @@ export function toAppError(value: unknown): AppError {
 /** Isolates left-to-right text (URLs, examples) inside a Hebrew sentence. */
 const ltr = (text: string) => `\u2066${text}\u2069`;
 
+const NOT_TABULAR = 'לא זוהה מידע טבלאי מיומן המבצעים. יש להעתיק שורות מ-Excel ולהדביק אותן כאן.';
+export const PASTE_TOO_LARGE_MESSAGE = 'הטקסט שהודבק גדול מדי (עד 2MB בכל הדבקה). הדביקו את השורות בכמה חלקים.';
+
 const PASTE_MESSAGES: Record<string, string> = {
-  empty_paste: 'לא נמצאו שורות בטקסט שהודבק. העתיקו שורות מיומן המבצעים ב-Excel ונסו שוב.',
-  paste_too_large: 'הטקסט שהודבק גדול מדי.',
-  too_few_columns:
-    'הטקסט שהודבק אינו נראה כמו שורות מיומן המבצעים. נדרשות לפחות ארבע עמודות: שעה, ממי, למי, תוכן. העתיקו שורות שלמות מ-Excel.',
-  too_many_rows: 'ניתן להדביק עד 500 שורות לתחקיר.',
-  cell_too_long: 'אחד התאים שהודבקו ארוך מ-2,000 תווים.',
+  empty_paste: NOT_TABULAR,
+  too_few_columns: `${NOT_TABULAR} נדרשות לפחות ארבע עמודות: שעה, ממי, למי, תוכן.`,
+  not_tabular: NOT_TABULAR,
+  too_many_columns: 'בטקסט שהודבק יותר מ-64 עמודות. סמנו ב-Excel רק את עמודות היומן.',
+  paste_too_large: PASTE_TOO_LARGE_MESSAGE,
+  too_many_rows: 'ניתן להדביק עד 2,000 שורות.',
+  cell_too_long: 'אחד התאים שהודבקו ארוך מ-4,000 תווים.',
 };
 
 const FIELD_MESSAGES: Record<string, string> = {
@@ -79,8 +83,8 @@ const FIELD_MESSAGES: Record<string, string> = {
   draft_too_large: 'הטיוטה גדולה מדי',
   invalid_draft_id: 'הטיוטה המבוקשת לא נמצאה',
   no_rows: 'יש להדביק לפחות שורה אחת מיומן המבצעים',
-  too_many_rows: 'ניתן לכלול עד 500 שורות בתחקיר',
-  row_too_long: 'אחת השורות ארוכה מדי (עד 2,000 תווים בכל שדה)',
+  too_many_rows: 'ניתן לכלול עד 2,000 שורות בתחקיר',
+  row_too_long: 'אחת השורות ארוכה מדי (עד 4,000 תווים בכל שדה)',
   empty_row: 'אחת השורות ריקה. מלאו אותה או הסירו אותה.',
   invalid_email: 'אחת הכתובות אינה כתובת דוא״ל תקינה',
   invalid_characters: `השם מכיל תווים שאינם מותרים: ${ltr('/ \\ : * ? " < > | # %')}`,
@@ -100,6 +104,20 @@ const FIELD_OVERRIDES: Record<string, Record<string, string>> = {
   actualEnd: { end_before_start: 'הסיום בפועל מוקדם מההתחלה בפועל' },
   number: { invalid_number: `מספר תחקיר לא תקין. יש להזין מספר כמו ${ltr('056-2026')}` },
 };
+
+/** Wording of the non-blocking advisories (warnings and information). */
+const ADVISORY_MESSAGES: Record<string, string> = {
+  night_overlap_not_marked: 'הפעילות כוללת זמן בטווח שעות הלילה שהוגדר, אך סומנה כמשימת לילה: לא. מומלץ לבדוק.',
+  actual_started_before_plan: 'הביצוע בפועל החל לפני מועד ההתחלה המתוכנן.',
+  actual_started_after_plan: 'הביצוע בפועל החל לאחר מועד ההתחלה המתוכנן.',
+  actual_ended_after_plan: 'הביצוע בפועל הסתיים לאחר מועד הסיום המתוכנן.',
+};
+
+export function advisoryMessage(advisory: { severity: string; field: string; code: string }): string {
+  return advisory.severity === 'error'
+    ? fieldMessage(advisory)
+    : (ADVISORY_MESSAGES[advisory.code] ?? 'יש לבדוק ערך זה');
+}
 
 /** Codes that mean "a required value is missing" (as opposed to an invalid value). */
 export const MISSING_CODES: readonly string[] = ['required', 'no_rows'];

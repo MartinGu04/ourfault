@@ -7,17 +7,30 @@
 //! filtered beyond dropping blank lines, and the operator reviews (and may
 //! edit or remove) every row before continuing.
 //!
-//! Pasted text is untrusted input: size, row count and cell length are
-//! bounded, and control characters are removed.
+//! Pasted text is untrusted input and is only ever treated as data: it is
+//! never interpreted as markup or code, here or in any renderer. Only the
+//! plain-text clipboard flavour reaches this module (the UI never reads the
+//! HTML flavour). Size, rows, columns and cell length are bounded; control
+//! characters and invisible bidirectional overrides are removed, while
+//! Hebrew, Latin, punctuation and line breaks inside cells are kept as is.
+//!
+//! Limits (see docs/ARCHITECTURE.md): generous for a real chronology (a busy
+//! day of log rows with long descriptions fits several times over), small
+//! enough to keep the review table, drafts and PDFs responsive.
 
 use serde::{Deserialize, Serialize};
 
-/// Largest paste accepted, in bytes.
-pub const MAX_PASTE_BYTES: usize = 1024 * 1024;
-/// Most rows in one investigation.
-pub const MAX_ROWS: usize = 500;
+/// Largest paste accepted, in bytes (2 MiB).
+pub const MAX_PASTE_BYTES: usize = 2 * 1024 * 1024;
+/// Most rows in one paste, and in one investigation.
+pub const MAX_ROWS: usize = 2000;
+/// Most columns in a pasted row. The log has a handful; a selection of whole
+/// sheet rows in Excel stays well below this.
+pub const MAX_COLUMNS: usize = 64;
 /// Longest accepted cell, in characters.
-pub const MAX_CELL_CHARS: usize = 2000;
+pub const MAX_CELL_CHARS: usize = 4000;
+/// Columns an operations-log row needs: time, from, to, description.
+const REQUIRED_COLUMNS: usize = 4;
 
 /// One operations-log row as it appears in an investigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +58,10 @@ pub enum PasteError {
     TooLarge,
     #[error("fewer than four columns")]
     TooFewColumns,
+    #[error("more than {MAX_COLUMNS} columns")]
+    TooManyColumns,
+    #[error("rows do not share the log's column layout")]
+    NotTabular,
     #[error("more than {MAX_ROWS} rows")]
     TooManyRows,
     #[error("a cell exceeds {MAX_CELL_CHARS} characters")]
@@ -58,6 +75,8 @@ impl PasteError {
             PasteError::Empty => "empty_paste",
             PasteError::TooLarge => "paste_too_large",
             PasteError::TooFewColumns => "too_few_columns",
+            PasteError::TooManyColumns => "too_many_columns",
+            PasteError::NotTabular => "not_tabular",
             PasteError::TooManyRows => "too_many_rows",
             PasteError::CellTooLong => "cell_too_long",
         }
@@ -97,9 +116,19 @@ pub fn parse_pasted_rows(text: &str) -> Result<PastedRows, PasteError> {
     if body.is_empty() {
         return Err(PasteError::Empty);
     }
+    if table.iter().any(|row| row.len() > MAX_COLUMNS) {
+        return Err(PasteError::TooManyColumns);
+    }
     let width = body.iter().map(|row| row.len()).max().unwrap_or(0);
-    if !header_skipped && width < 4 {
+    if !header_skipped && width < REQUIRED_COLUMNS {
         return Err(PasteError::TooFewColumns);
+    }
+    // Excel copies a rectangular selection: every row carries all the log
+    // columns (empty cells included). A shorter row means the text is not
+    // a copy of log rows, e.g. prose with a stray tab.
+    let needed = [columns.time, columns.from, columns.to, columns.description].into_iter().max().unwrap_or(0) + 1;
+    if body.iter().any(|row| row.len() < needed) {
+        return Err(PasteError::NotTabular);
     }
     if body.len() > MAX_ROWS {
         return Err(PasteError::TooManyRows);
@@ -160,15 +189,24 @@ fn row_fields(row: &LogRow) -> [&str; 4] {
 }
 
 /// Trims, normalises line endings and removes control characters other than
-/// line breaks and tabs. The UI always renders the result as plain text.
+/// line breaks and tabs, plus invisible characters that could make text
+/// display differently from what it contains (bidirectional embeddings,
+/// overrides and isolates, byte-order marks). Everything else, including
+/// Hebrew, directional marks and markup-like text, is kept literally; every
+/// renderer treats it as plain text.
 fn clean_cell(value: &str) -> String {
     value
         .replace("\r\n", "\n")
+        .replace('\r', "\n")
         .chars()
-        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .filter(|c| (!c.is_control() || *c == '\n' || *c == '\t') && !is_hidden_formatting(*c))
         .collect::<String>()
         .trim()
         .to_owned()
+}
+
+fn is_hidden_formatting(c: char) -> bool {
+    matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
 }
 
 fn header_columns(row: &[String]) -> Option<Columns> {
@@ -316,12 +354,75 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unrelated_text() {
+        let prose = "שלום לכולם,\nמצורף הסיכום מהישיבה.\n\nבברכה";
+        assert_eq!(parse_pasted_rows(prose), Err(PasteError::TooFewColumns));
+        // A stray tab in prose: not a rectangular copy of log rows.
+        let stray = "08:00\ta\tb\tc\nסתם שורה של טקסט\n";
+        assert_eq!(parse_pasted_rows(stray), Err(PasteError::NotTabular));
+        let html = "<table><tr><td>08:00</td><td>a</td></tr></table>";
+        assert_eq!(parse_pasted_rows(html), Err(PasteError::TooFewColumns));
+    }
+
+    #[test]
+    fn rejects_unexpected_column_shapes() {
+        let wide = format!("{}\n", vec!["x"; MAX_COLUMNS + 1].join("\t"));
+        assert_eq!(parse_pasted_rows(&wide), Err(PasteError::TooManyColumns));
+        let header_then_short = "Description\tTo\tFrom\tTime\n09:00\ta\n";
+        assert_eq!(parse_pasted_rows(header_then_short), Err(PasteError::NotTabular));
+        // Wide but within the limit (whole sheet rows selected) is fine.
+        let many = format!("08:00\ta\tb\tc{}\n", "\t".repeat(MAX_COLUMNS - 4));
+        assert_eq!(parse_pasted_rows(&many).unwrap().rows, vec![row("08:00", "a", "b", "c")]);
+    }
+
+    #[test]
+    fn several_pasted_groups_parse_independently() {
+        // Non-contiguous selections are pasted one group at a time.
+        let first = parse_pasted_rows("08:00\ta\tb\tראשון\r\n").unwrap();
+        let second = parse_pasted_rows("11:30\tc\td\tשני\r\n11:40\te\tf\tשלישי\r\n").unwrap();
+        let all: Vec<&str> = first.rows.iter().chain(&second.rows).map(|r| r.description.as_str()).collect();
+        assert_eq!(all, vec!["ראשון", "שני", "שלישי"]);
+    }
+
+    #[test]
+    fn keeps_unicode_hebrew_and_punctuation_unchanged() {
+        let text = "07:05\tמוקד \"צפון\" (א׳)\tעמדה 3/ב\tנוסח: ״הכול תקין״ – 100% ✓ café\n";
+        let pasted = parse_pasted_rows(text).unwrap();
+        assert_eq!(pasted.rows[0], row("07:05", "מוקד \"צפון\" (א׳)", "עמדה 3/ב", "נוסח: ״הכול תקין״ – 100% ✓ café"));
+        // Directional marks used in real Hebrew text are kept.
+        let marked = parse_pasted_rows("07:05\tא\u{200F}ב\tג\tד").unwrap();
+        assert_eq!(marked.rows[0].from, "א\u{200F}ב");
+    }
+
+    #[test]
+    fn strips_invisible_overrides_and_control_characters() {
+        let text = "08:00\t\u{202E}evil\u{202C}\tb\u{1B}[31m\t\u{FEFF}ok\u{7}";
+        let pasted = parse_pasted_rows(text).unwrap();
+        assert_eq!(pasted.rows[0], row("08:00", "evil", "b[31m", "ok"));
+    }
+
+    #[test]
+    fn script_like_content_stays_literal_text() {
+        let text = "08:00\t<script>alert('x')</script>\t=cmd|'/c calc'!A1\t\"<b>bold</b>\n& more\"\r\n";
+        let pasted = parse_pasted_rows(text).unwrap();
+        assert_eq!(
+            pasted.rows[0],
+            row("08:00", "<script>alert('x')</script>", "=cmd|'/c calc'!A1", "<b>bold</b>\n& more")
+        );
+    }
+
+    #[test]
     fn enforces_limits() {
         assert_eq!(parse_pasted_rows(&"x".repeat(MAX_PASTE_BYTES + 1)), Err(PasteError::TooLarge));
         let many = "08:00\ta\tb\tc\n".repeat(MAX_ROWS + 1);
         assert_eq!(parse_pasted_rows(&many), Err(PasteError::TooManyRows));
         let long = format!("08:00\ta\tb\t{}", "x".repeat(MAX_CELL_CHARS + 1));
         assert_eq!(parse_pasted_rows(&long), Err(PasteError::CellTooLong));
+        // At the limits it still works.
+        let longest = format!("08:00\ta\tb\t{}", "א".repeat(MAX_CELL_CHARS));
+        assert_eq!(parse_pasted_rows(&longest).unwrap().rows[0].description.chars().count(), MAX_CELL_CHARS);
+        let most = "08:00\ta\tb\tc\n".repeat(MAX_ROWS);
+        assert_eq!(parse_pasted_rows(&most).unwrap().rows.len(), MAX_ROWS);
     }
 
     #[test]

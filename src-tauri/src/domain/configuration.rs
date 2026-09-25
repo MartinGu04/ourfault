@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::mail::MailTemplate;
+use super::night_window::NightWindow;
 use super::sections::{numeric_suffix, SectionDefinition};
 use super::station::Station;
 use super::system::System;
@@ -27,6 +28,10 @@ pub struct Configuration {
     pub sections: Vec<SectionDefinition>,
     pub mail: MailTemplate,
     pub publication: PublicationSettings,
+    /// Night hours for the night-activity advisory. Defaults to 20:00 → 06:00
+    /// (also for configuration files written before it existed).
+    #[serde(default)]
+    pub night_window: NightWindow,
 }
 
 /// Where completed investigations are created when publishing to SharePoint:
@@ -142,6 +147,7 @@ pub(crate) mod tests {
                 site_url: "https://sharepoint.example.com/sites/ops".into(),
                 list: "Investigations".into(),
             },
+            night_window: NightWindow::default(),
         }
     }
 

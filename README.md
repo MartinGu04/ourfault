@@ -34,7 +34,8 @@ npm run tauri dev
 ```
 
 On first start the app seeds fictional data: four systems (one deactivated),
-four satellite stations, three technical sections, the distribution template,
+four satellite stations, two technical table sections, the night window
+(20:00 → 06:00), the distribution template,
 past investigations up to `055-2026` (completed and distributed, every
 activity type) and one saved draft (*בלט רומני*).
 
@@ -56,7 +57,9 @@ activity type) and one saved draft (*בלט רומני*).
    if needed.
 6. **בדיקות מקדימות וסקירה**: paste e.g. `https://checks.example.com/runs/4480`.
    The page lists anything still missing (each item links to its step) and
-   previews the document with the expected number. **ייצוא טיוטה ל-PDF** asks
+   previews the document with the expected number. Errors block creation;
+   warnings (e.g. a period overlapping night hours while *משימת לילה* is
+   "לא") and information (e.g. execution started before the plan) do not. **ייצוא טיוטה ל-PDF** asks
    for confirmation and produces a file marked *טיוטה — לא להפצה*.
 7. **יצירת תחקיר**: the number (`056-2026`) is allocated and the
    investigation is created in the mock SharePoint list. The draft leaves the

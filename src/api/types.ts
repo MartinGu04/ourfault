@@ -236,8 +236,19 @@ export interface FieldError {
   code: string;
 }
 
+export type Severity = 'error' | 'warning' | 'info';
+
+/** A finding about a draft. Errors block completion; warnings and info do not. */
+export interface Advisory {
+  severity: Severity;
+  /** Language-neutral message key. */
+  code: string;
+  field: string;
+}
+
 export interface Review {
-  issues: FieldError[];
+  /** Errors first, then warnings, then information. */
+  advisories: Advisory[];
   document: DocumentView;
   /** null when the destination cannot be reached. */
   expectedNumber: InvestigationNumber | null;

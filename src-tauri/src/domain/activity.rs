@@ -406,6 +406,17 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn an_actual_start_before_the_planned_start_is_valid() {
+        // Found in manual testing: planned 15/09 02:43, actual 14/09 02:45.
+        let mut input = activity_input();
+        input.planned_start = "2026-09-15T02:43".into();
+        input.planned_end = "2026-09-15T06:00".into();
+        input.actual_start = "2026-09-14T02:45".into();
+        input.actual_end = "2026-09-14T05:30".into();
+        assert!(validate(&input).is_ok(), "planned vs. actual differences are advisories, not errors");
+    }
+
+    #[test]
     fn planned_and_actual_times_do_not_need_to_match() {
         let mut input = activity_input();
         input.planned_start = "2026-09-18T20:00".into();
