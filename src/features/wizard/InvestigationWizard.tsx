@@ -254,21 +254,24 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
         {error && <Banner tone="error">{error}</Banner>}
         {notice && <Banner tone={notice.tone}>{notice.content}</Banner>}
 
-        {step === 'activity' && <ActivityStep state={state} dispatch={dispatch} workspace={workspace} />}
-        {step === 'technical' && <TechnicalStep state={state} dispatch={dispatch} workspace={workspace} />}
-        {step === 'chronology' && (
-          <PasteRowsStep state={state} dispatch={dispatch} onPasteText={pasteText} parsing={busy === 'paste'} />
-        )}
-        {step === 'review' && (
-          <ReviewStep
-            state={state}
-            content={content}
-            dispatch={dispatch}
-            workspace={workspace}
-            onGoTo={goTo}
-            onReview={setReview}
-          />
-        )}
+        {/* Keyed by step: only a step change replays the entry transition. */}
+        <div key={step} className={state.direction === 'back' ? 'wizard-step wizard-step-back' : 'wizard-step'}>
+          {step === 'activity' && <ActivityStep state={state} dispatch={dispatch} workspace={workspace} />}
+          {step === 'technical' && <TechnicalStep state={state} dispatch={dispatch} workspace={workspace} />}
+          {step === 'chronology' && (
+            <PasteRowsStep state={state} dispatch={dispatch} onPasteText={pasteText} parsing={busy === 'paste'} />
+          )}
+          {step === 'review' && (
+            <ReviewStep
+              state={state}
+              content={content}
+              dispatch={dispatch}
+              workspace={workspace}
+              onGoTo={goTo}
+              onReview={setReview}
+            />
+          )}
+        </div>
       </div>
 
       <footer className="action-bar">
