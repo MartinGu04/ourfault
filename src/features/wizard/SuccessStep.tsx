@@ -27,15 +27,19 @@ export function SuccessStep({ created, alreadyExisted, expectedNumber, navigatio
   return (
     <div className="success">
       <div className="success-icon">
-        <Icon name="check" size={32} />
+        <Icon name="check" size={30} />
       </div>
       <h2 className="success-title">{alreadyExisted ? 'התחקיר כבר נוצר מטיוטה זו' : 'התחקיר נוצר בהצלחה'}</h2>
       <p className="success-number">
+        <span className="success-number-label">מספר תחקיר</span>
         <Ltr>{number}</Ltr>
       </p>
-      <p className="success-summary">
-        {activity.name} · {activity.systems.map((system) => system.name).join(', ')}
-      </p>
+      <p className="success-activity">{activity.name}</p>
+      <ul className="success-systems" aria-label="מערכות">
+        {activity.systems.map((system) => (
+          <li key={system.id}>{system.name}</li>
+        ))}
+      </ul>
 
       {alreadyExisted && (
         <Banner>
@@ -66,15 +70,15 @@ export function SuccessStep({ created, alreadyExisted, expectedNumber, navigatio
       {notice && <Banner tone={notice.tone}>{notice.content}</Banner>}
 
       <div className="success-actions">
-        <Button variant="primary" size="large" onClick={() => navigation.openInvestigation(number)}>
+        <Button variant="primary" size="large" icon="file" onClick={() => navigation.openInvestigation(number)}>
           פתח תחקיר
         </Button>
         <Button size="large" icon="mail" onClick={() => setDistributing(true)}>
           הפצה במייל
         </Button>
-        <ExportPdfButton target={{ kind: 'investigation', number }} onNotice={setNotice} />
+        <ExportPdfButton target={{ kind: 'investigation', number }} onNotice={setNotice} size="large" />
       </div>
-      <button type="button" className="link-button" onClick={navigation.goHome}>
+      <button type="button" className="link-button success-home" onClick={navigation.goHome}>
         חזרה לדף הבית
       </button>
 

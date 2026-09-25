@@ -52,6 +52,8 @@ export interface WizardState {
   touched: readonly string[];
   /** Steps the operator has moved on from (or everything, once on review). */
   attempted: readonly DraftStep[];
+  /** Whether the last step change went forward or back (for the transition). */
+  direction: 'forward' | 'back';
   created: Completion | null;
   /** The number shown before completion, to explain if it changed. */
   expectedNumber: InvestigationNumber | null;
@@ -100,6 +102,7 @@ export const initialWizardState: WizardState = {
   assessment: null,
   touched: [],
   attempted: [],
+  direction: 'forward',
   created: null,
   expectedNumber: null,
 };
@@ -255,7 +258,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       const left = state.step === 'done' || state.step === action.step ? [] : [state.step];
       const attempted =
         action.step === 'review' ? stepsUntil(STEPS.length) : [...new Set([...state.attempted, ...left])];
-      return { ...state, step: action.step, lastPaste: null, attempted };
+      const from = STEPS.findIndex((step) => step.key === state.step);
+      const to = STEPS.findIndex((step) => step.key === action.step);
+      const direction = to < from ? 'back' : 'forward';
+      return { ...state, step: action.step, lastPaste: null, attempted, direction };
     }
     case 'assessed':
       return { ...state, assessment: action.advisories };

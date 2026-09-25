@@ -24,9 +24,10 @@ interface Props {
   target: ExportTarget;
   onNotice: (notice: Notice) => void;
   label?: string;
+  size?: 'normal' | 'large';
 }
 
-export function ExportPdfButton({ target, onNotice, label = 'ייצוא ל-PDF' }: Props) {
+export function ExportPdfButton({ target, onNotice, label = 'ייצוא ל-PDF', size = 'normal' }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -62,7 +63,7 @@ export function ExportPdfButton({ target, onNotice, label = 'ייצוא ל-PDF' 
 
   return (
     <>
-      <Button icon="download" busy={busy && !confirming} onClick={() => (target.kind === 'draft' ? setConfirming(true) : run(false))}>
+      <Button icon="download" size={size} busy={busy && !confirming} onClick={() => (target.kind === 'draft' ? setConfirming(true) : run(false))}>
         {label}
       </Button>
       {confirming && (

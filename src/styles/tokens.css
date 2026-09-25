@@ -1,0 +1,237 @@
+/* Design tokens.
+ *
+ * Two layers:
+ *   1. Brand primitives (--brand-*): the OurFault palette, never used by
+ *      components directly.
+ *   2. Semantic tokens: what components use. Each theme maps them to
+ *      primitives. Themes are attribute-scoped ([data-theme]) so a subtree can
+ *      force a theme (the welcome screen is always the dark brand scene).
+ *
+ * Pages must not hard-code colours: add a semantic token instead.
+ */
+
+:root {
+  /* ---- Brand primitives ---- */
+  --brand-navy-975: #030b1f;
+  --brand-navy-950: #04102a;
+  --brand-navy-900: #061634;
+  --brand-navy-850: #0a1e45;
+  --brand-navy-800: #0d2753;
+  --brand-navy-750: #113062;
+  --brand-navy-700: #173b74;
+  --brand-navy-600: #24508f;
+  --brand-blue-700: #0c4aa6;
+  --brand-blue-600: #1463d8;
+  --brand-blue-500: #2f7cf6;
+  --brand-blue-400: #4d9cff;
+  --brand-blue-300: #86bdff;
+  --brand-cyan-500: #10bfd8;
+  --brand-cyan-400: #2fd9ea;
+  --brand-cyan-300: #6ff0f0;
+  --brand-ice-50: #f5f8fc;
+  --brand-ice-100: #edf3fa;
+  --brand-ice-200: #dde7f3;
+  --brand-ice-300: #c3d2e5;
+
+  --brand-gradient: linear-gradient(90deg, var(--brand-cyan-400) 0%, var(--brand-blue-500) 100%);
+  --brand-gradient-strong: linear-gradient(135deg, #1b8ff0 0%, #1d62e0 100%);
+
+  /* ---- Typography ---- */
+  --font: 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans', Tahoma, Arial, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans', Tahoma, Arial, sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 19px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Spacing (4px grid) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---- Shape ---- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* ---- Controls ---- */
+  --control-sm: 30px;
+  --control-md: 36px;
+  --control-lg: 44px;
+
+  /* ---- Layout ---- */
+  --topbar-height: 56px;
+  --page-padding-inline: clamp(16px, 2.5vw, 48px);
+  --page-max: 1680px;
+  --text-max: 72ch;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+
+  /* ---- The document preview is paper in every theme (it mirrors the PDF). ---- */
+  --paper: #ffffff;
+  --paper-text: #111c2e;
+  --paper-muted: #56657d;
+  --paper-border: #c9d3e0;
+  --paper-head: #eef3f9;
+  --paper-danger: #b42318;
+  --paper-danger-soft: #fdeeee;
+}
+
+/* ---- Light theme (default) ---- */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #e7eef7;
+  --bg-elevated: #f3f7fc;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f6f9fd;
+  --surface-hover: #eef4fb;
+  --surface-selected: #e4eefc;
+  --surface-overlay: rgba(255, 255, 255, 0.86);
+
+  /* Slightly firmer edges so white cards read clearly on the airy backdrop. */
+  --border: #d0dbe9;
+  --border-strong: #b7c6da;
+  --divider: #e5ebf3;
+
+  --text-primary: #0b1f3f;
+  --text-secondary: #3e5273;
+  --text-muted: #687b98;
+  --text-inverse: #ffffff;
+
+  --accent: var(--brand-blue-600);
+  --accent-hover: #0f56c0;
+  --accent-pressed: var(--brand-blue-700);
+  --accent-soft: #e6f0fd;
+  --accent-soft-strong: #cfe1fb;
+  --accent-text: #0d55bf;
+  --accent-highlight: #0aa9bf;
+  --on-accent: #ffffff;
+  --accent-fill: linear-gradient(135deg, #1a73e8 0%, #1459d0 100%);
+
+  --success: #0f7a4a;
+  --success-soft: #e4f5ec;
+  --success-border: #b7e2cb;
+  --warning: #8f5400;
+  --warning-soft: #fff4dc;
+  --warning-border: #f1d79c;
+  --danger: #c02a2a;
+  --danger-soft: #fdeeee;
+  --danger-border: #f3c7c7;
+  --info: #0b66b3;
+  --info-soft: #e7f2fc;
+  --info-border: #bcdaf5;
+
+  --shadow-sm: 0 1px 2px rgba(15, 35, 70, 0.07), 0 2px 8px rgba(15, 35, 70, 0.045);
+  --shadow-md: 0 1px 2px rgba(15, 35, 70, 0.05), 0 4px 14px rgba(15, 35, 70, 0.07);
+  --shadow-lg: 0 2px 6px rgba(15, 35, 70, 0.06), 0 22px 56px rgba(15, 35, 70, 0.18);
+  --glow-accent: 0 0 0 1px rgba(20, 99, 216, 0.14), 0 8px 24px rgba(20, 99, 216, 0.16);
+
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-blue-500);
+  --input-bg: #ffffff;
+  --scrim: rgba(8, 20, 45, 0.42);
+  --preview-canvas: #dde5ef;
+
+  /* Backdrop: soft atmospheric waves on an icy base. */
+  --backdrop-base: linear-gradient(180deg, #edf3fa 0%, #e6edf7 100%);
+  --backdrop-glow-a: rgba(47, 124, 246, 0.1);
+  --backdrop-glow-b: rgba(16, 191, 216, 0.08);
+  --wave-a-from: rgba(47, 124, 246, 0.07);
+  --wave-a-to: rgba(16, 191, 216, 0.02);
+  --wave-b-from: rgba(16, 191, 216, 0.08);
+  --wave-b-to: rgba(47, 124, 246, 0.03);
+  --wave-line: rgba(47, 124, 246, 0.16);
+  --wave-orbit: rgba(47, 124, 246, 0.08);
+}
+
+/* ---- Dark theme ---- */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: var(--brand-navy-900);
+  --bg-elevated: var(--brand-navy-850);
+  --surface: #0b1f47;
+  --surface-raised: #0f2754;
+  --surface-sunken: #081839;
+  --surface-hover: #132d5f;
+  --surface-selected: #16366f;
+  --surface-overlay: rgba(6, 22, 52, 0.84);
+
+  --border: #1c3668;
+  --border-strong: #2b4d86;
+  --divider: #16305d;
+
+  --text-primary: #e9f1ff;
+  --text-secondary: #a9bcdb;
+  --text-muted: #7c91b5;
+  --text-inverse: var(--brand-navy-900);
+
+  --accent: var(--brand-blue-500);
+  --accent-hover: var(--brand-blue-400);
+  --accent-pressed: #2169dc;
+  --accent-soft: rgba(47, 124, 246, 0.16);
+  --accent-soft-strong: rgba(47, 124, 246, 0.28);
+  --accent-text: #8cc4ff;
+  --accent-highlight: var(--brand-cyan-400);
+  --on-accent: #ffffff;
+  --accent-fill: linear-gradient(135deg, #1f8bf2 0%, #2261e3 100%);
+
+  --success: #4fd6a0;
+  --success-soft: rgba(52, 211, 153, 0.12);
+  --success-border: rgba(52, 211, 153, 0.34);
+  --warning: #f6c265;
+  --warning-soft: rgba(245, 181, 68, 0.12);
+  --warning-border: rgba(245, 181, 68, 0.36);
+  --danger: #ff8f8f;
+  --danger-soft: rgba(255, 107, 107, 0.12);
+  --danger-border: rgba(255, 120, 120, 0.36);
+  --info: #6fd0ff;
+  --info-soft: rgba(56, 182, 255, 0.12);
+  --info-border: rgba(80, 190, 255, 0.34);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 6, 20, 0.35);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.35), 0 28px 64px rgba(0, 6, 20, 0.55);
+  --glow-accent: 0 0 0 1px rgba(77, 156, 255, 0.28), 0 10px 30px rgba(31, 139, 242, 0.22);
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand-cyan-400);
+  --input-bg: #081a3e;
+  --scrim: rgba(2, 8, 22, 0.66);
+  --preview-canvas: #071431;
+
+  --backdrop-base: linear-gradient(180deg, #061634 0%, #04102a 100%);
+  --backdrop-glow-a: rgba(47, 124, 246, 0.2);
+  --backdrop-glow-b: rgba(47, 217, 234, 0.1);
+  --wave-a-from: rgba(38, 104, 220, 0.32);
+  --wave-a-to: rgba(10, 30, 69, 0);
+  --wave-b-from: rgba(47, 217, 234, 0.16);
+  --wave-b-to: rgba(20, 70, 170, 0.04);
+  --wave-line: rgba(111, 240, 240, 0.22);
+  --wave-orbit: rgba(134, 189, 255, 0.1);
+}

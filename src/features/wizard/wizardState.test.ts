@@ -141,3 +141,17 @@ describe('drafts', () => {
     expect(state.expectedNumber).toBe('056-2026');
   });
 });
+
+describe('step transition direction', () => {
+  it('records whether the operator moved forward or back', () => {
+    let state = wizardReducer(initialWizardState, { type: 'stepRequested', step: 'technical' });
+    expect(state.direction).toBe('forward');
+    state = wizardReducer(state, { type: 'stepRequested', step: 'review' });
+    expect(state.direction).toBe('forward');
+    state = wizardReducer(state, { type: 'stepRequested', step: 'activity' });
+    expect(state.direction).toBe('back');
+    // Other changes keep the last direction (no transition is replayed for them).
+    state = wizardReducer(state, { type: 'activityChanged', patch: { name: 'x' } });
+    expect(state.direction).toBe('back');
+  });
+});

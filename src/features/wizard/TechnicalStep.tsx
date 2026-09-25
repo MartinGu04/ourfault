@@ -7,7 +7,7 @@ import type { Dispatch } from 'react';
 
 import { fieldMessage } from '../../api/errors';
 import type { FieldDefinition, FieldError, FieldValue, SectionDefinition, SectionRecord, Workspace } from '../../api/types';
-import { Button, Chips, Field, Segmented, YES_NO } from '../../ui/controls';
+import { Button, Chips, EmptyState, Field, Segmented, YES_NO } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { visibleErrors, type WizardAction, type WizardState } from './wizardState';
 
@@ -21,7 +21,11 @@ interface Props {
 
 export function TechnicalStep({ state, dispatch, workspace }: Props) {
   if (workspace.sections.length === 0) {
-    return <p className="empty-text">לא הוגדרו סעיפים טכניים. ניתן להמשיך לשלב הבא.</p>;
+    return (
+      <EmptyState icon="layers" title="לא הוגדרו סעיפים טכניים">
+        ניתן להמשיך לשלב הבא. מנהל יכול להגדיר סעיפים במצב מנהל.
+      </EmptyState>
+    );
   }
   // Missing values show once the operator got to them; invalid ones at once.
   const errors = visibleErrors(state);
@@ -69,9 +73,19 @@ function SectionCard({
   return (
     <section className="form-card section-card" aria-labelledby={`section-${section.id}`}>
       <div className="section-card-header">
-        <h2 id={`section-${section.id}`} className="form-card-title">
-          {section.name}
-        </h2>
+        <span className="section-card-icon" aria-hidden="true">
+          <Icon name={section.mode === 'repeating' ? 'table' : 'file'} size={18} />
+        </span>
+        <div className="section-card-heading">
+          <h2 id={`section-${section.id}`} className="form-card-title">
+            {section.name}
+          </h2>
+          <p className="section-card-meta">
+            {section.mode === 'repeating'
+              ? `טבלה · ${records.length === 1 ? 'שורה אחת' : `${records.length} שורות`}`
+              : 'רשומה אחת'}
+          </p>
+        </div>
         {section.mode === 'repeating' && (
           <Button icon="plus" onClick={() => dispatch({ type: 'sectionRowAdded', sectionId: section.id })}>
             הוספת שורה
@@ -93,7 +107,9 @@ function SectionCard({
           ))}
         </div>
       ) : records.length === 0 ? (
-        <p className="empty-text">אין שורות. הוסיפו שורה אם הסעיף רלוונטי לפעילות.</p>
+        <EmptyState icon="table" title="אין שורות בסעיף" compact>
+          הוסיפו שורה אם הסעיף רלוונטי לפעילות.
+        </EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="data-table section-table">

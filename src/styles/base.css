@@ -1,63 +1,16 @@
-/* Design tokens, reset and application shell.
-   Layout uses logical properties (inline-start/end) so it is natively RTL. */
+/* Reset, typography, application shell, branded backdrop and motion.
+   Layout uses logical properties (inline-start/end) so it is natively RTL.
+   Colours come from tokens.css only. */
 
 :root {
-  --font: 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans', Tahoma, Arial, sans-serif;
-  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Noto Sans Hebrew', 'Noto Sans', Tahoma, Arial, sans-serif;
-
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-muted: #f8f9fb;
-  --surface-hover: #f2f4f7;
-  --border: #e2e5ea;
-  --border-strong: #c9ced6;
-
-  --text: #1b1e23;
-  --text-2: #4a525c;
-  --text-3: #6f7883;
-
-  --accent: #0f62b8;
-  --accent-hover: #0d569f;
-  --accent-pressed: #0b4a8a;
-  --accent-soft: #edf4fc;
-  --accent-soft-strong: #d9e8f8;
-  --accent-text: #0b4f95;
-
-  --success: #107c41;
-  --success-soft: #e9f6ef;
-  --danger: #c0281b;
-  --danger-soft: #fdf0ef;
-  --danger-border: #f5cdc9;
-  --warning: #8a5a00;
-  --warning-soft: #fff6e0;
-  --warning-border: #f1d894;
-  --mark: #f2c200;
-
-  --radius-s: 4px;
-  --radius: 6px;
-  --radius-l: 10px;
-
-  --shadow-1: 0 1px 2px rgba(20, 28, 40, 0.06);
-  --shadow-2: 0 2px 8px rgba(20, 28, 40, 0.06), 0 1px 2px rgba(20, 28, 40, 0.04);
-  --shadow-3: 0 24px 64px rgba(20, 28, 40, 0.22), 0 2px 8px rgba(20, 28, 40, 0.08);
-
-  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-
-  /* Pages use the width of a maximised desktop window, with side padding
-     that shrinks on smaller windows. Text blocks keep their own, narrower
-     measure (see --text-max). */
-  --page-padding-inline: clamp(16px, 2.5vw, 48px);
-  --page-max: 1680px;
-  --text-max: 72ch;
-
-  color-scheme: light;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.5;
-  color: var(--text);
-  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Behind everything, before the app paints: the brand navy (the first
+     screen is always the dark welcome scene, so no theme ever flashes). */
+  background: var(--brand-navy-900);
 }
 
 *,
@@ -74,6 +27,7 @@ body,
 
 body {
   margin: 0;
+  color: var(--text-primary);
 }
 
 h1,
@@ -111,6 +65,10 @@ bdi[dir='ltr'] {
   unicode-bidi: isolate;
 }
 
+::selection {
+  background: var(--accent-soft-strong);
+}
+
 .visually-hidden {
   position: absolute;
   inline-size: 1px;
@@ -120,12 +78,76 @@ bdi[dir='ltr'] {
   white-space: nowrap;
 }
 
+/* Scrollbars that belong to the theme. */
+* {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* ---- Branded backdrop ----
+   Layered SVG waves and two radial glows, fixed behind the content. Static
+   (no animation) and cheap: no raster image, no canvas. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 88% -8%, var(--backdrop-glow-a), transparent 62%),
+    radial-gradient(900px 560px at 6% 104%, var(--backdrop-glow-b), transparent 60%),
+    var(--backdrop-base);
+}
+
+.backdrop svg {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.backdrop .wave-a-from {
+  stop-color: var(--wave-a-from);
+}
+
+.backdrop .wave-a-to {
+  stop-color: var(--wave-a-to);
+}
+
+.backdrop .wave-b-from {
+  stop-color: var(--wave-b-from);
+}
+
+.backdrop .wave-b-to {
+  stop-color: var(--wave-b-to);
+}
+
+.backdrop .wave-line {
+  fill: none;
+  stroke: var(--wave-line);
+  stroke-width: 1.2;
+}
+
+.backdrop .wave-orbit {
+  fill: none;
+  stroke: var(--wave-orbit);
+  stroke-width: 1;
+}
+
 /* ---- Shell ---- */
 
 .app {
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr;
   block-size: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+.app > :not(.backdrop) {
+  position: relative;
+  z-index: 1;
 }
 
 .app-main {
@@ -137,66 +159,101 @@ bdi[dir='ltr'] {
   display: grid;
   place-items: center;
   block-size: 100%;
-  padding: 24px;
+  padding: var(--space-6);
 }
+
+.app-loading {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  color: var(--brand-blue-300);
+}
+
+.app-loading img {
+  inline-size: 56px;
+  block-size: 56px;
+  opacity: 0.9;
+}
+
+/* ---- Top bar ---- */
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  block-size: 56px;
-  padding-inline: 20px;
-  background: var(--surface);
+  gap: var(--space-4);
+  block-size: var(--topbar-height);
+  padding-inline: var(--page-padding-inline);
+  background: var(--surface-overlay);
   border-block-end: 1px solid var(--border);
+  backdrop-filter: blur(14px) saturate(1.2);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 6px;
-  margin-inline-start: -6px;
+  padding: 4px 8px;
+  margin-inline-start: -8px;
   border: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: none;
+  color: inherit;
   text-align: start;
+  transition: background-color var(--duration-fast) ease;
 }
 
 .brand-link:hover {
   background: var(--surface-hover);
 }
 
-.brand-logo {
+.brand-mark {
   display: block;
+  inline-size: 30px;
+  block-size: 30px;
+  filter: drop-shadow(0 2px 6px rgba(20, 90, 200, 0.25));
 }
 
 .brand-name {
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 650;
+  font-weight: var(--weight-bold);
   letter-spacing: -0.01em;
+  direction: ltr;
+}
+
+.brand-name-accent {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .brand-tagline {
-  padding-inline-start: 10px;
+  padding-inline-start: 12px;
   border-inline-start: 1px solid var(--border);
-  color: var(--text-3);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 .topbar-end {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
+}
+
+.topbar-divider {
+  inline-size: 1px;
+  block-size: 24px;
+  background: var(--border);
 }
 
 .user-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-2);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 .user-avatar {
@@ -205,10 +262,10 @@ bdi[dir='ltr'] {
   inline-size: 28px;
   block-size: 28px;
   border-radius: 50%;
-  background: var(--accent-soft-strong);
-  color: var(--accent-text);
-  font-weight: 600;
-  font-size: 13px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
 }
 
 /* ---- Page scaffolding ---- */
@@ -216,34 +273,41 @@ bdi[dir='ltr'] {
 .page {
   max-inline-size: var(--page-max);
   margin-inline: auto;
-  padding: 24px var(--page-padding-inline) 48px;
+  padding: var(--space-8) var(--page-padding-inline) var(--space-12);
 }
 
 .page-narrow {
-  max-inline-size: 1240px;
+  max-inline-size: 1440px;
 }
 
 .page-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-block-end: 16px;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
   margin-inline-start: -10px;
 }
 
 .page-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  margin-block-end: 24px;
+  gap: var(--space-6);
+  margin-block-end: var(--space-6);
+}
+
+.page-eyebrow {
+  margin-block-end: 4px;
+  color: var(--accent-highlight);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
 }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 650;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
@@ -251,31 +315,44 @@ bdi[dir='ltr'] {
 .page-subtitle {
   margin-block-start: 6px;
   max-inline-size: var(--text-max);
-  color: var(--text-2);
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
 .section-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-block-end: 12px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.section-title .count {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-selected);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .empty-text {
-  color: var(--text-3);
+  max-inline-size: var(--text-max);
+  color: var(--text-muted);
 }
 
 .startup-error {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   max-inline-size: 460px;
-  padding: 32px;
-  text-align: center;
-  background: var(--surface);
+  padding: var(--space-8);
   border: 1px solid var(--border);
-  border-radius: var(--radius-l);
-  color: var(--text-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .startup-error .icon {
@@ -283,8 +360,33 @@ bdi[dir='ltr'] {
 }
 
 .startup-error h1 {
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 18px;
+}
+
+/* ---- Motion ----
+   Short, purposeful transitions only; nothing loops except busy spinners. */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.theme-switching,
+.theme-switching * {
+  transition:
+    background-color var(--duration-slow) ease,
+    border-color var(--duration-slow) ease,
+    color var(--duration-slow) ease,
+    fill var(--duration-slow) ease !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -292,6 +394,7 @@ bdi[dir='ltr'] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

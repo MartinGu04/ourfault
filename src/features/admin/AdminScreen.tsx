@@ -32,6 +32,7 @@ export function AdminScreen() {
     <div className="page admin">
       <div className="page-heading">
         <div>
+          <p className="page-eyebrow">מצב מנהל</p>
           <h1 className="page-title">הגדרות</h1>
           <p className="page-subtitle">
             ההגדרה הראשונית וההגדרות השוטפות הן אותן הגדרות: אפשר לחזור לכאן בכל עת ולשנות אותן. תחקירים שכבר נוצרו
@@ -44,7 +45,7 @@ export function AdminScreen() {
       {loaded.status === 'loading' && <Spinner label="טוען הגדרות" />}
       {loaded.status === 'error' && <Banner tone="error">{errorMessage(loaded.error)}</Banner>}
       {loaded.status === 'ready' && (
-        <div className="admin-panel" role="tabpanel">
+        <div key={tab} className="admin-panel" role="tabpanel">
           {tab === 'setup' && <SetupOverview setup={loaded.data.setup} onOpen={setTab} />}
           {tab === 'systems' && <SystemsPanel systems={loaded.data.configuration.systems} onChanged={reload} />}
           {tab === 'stations' && <StationsPanel stations={loaded.data.configuration.stations} onChanged={reload} />}

@@ -351,6 +351,50 @@ configuration (`Configuration::setup_status`), so it stays available and
 reflects later changes. Required items (an active system, a valid mail
 template, a publication target) gate completion, not draft saving.
 
+## Visual design system
+
+The UI is one token-based design system (`src/styles/`), Hebrew and RTL
+first, with two intentional themes.
+
+| File | Contents |
+| --- | --- |
+| `tokens.css` | Brand primitives (`--brand-*`) and the semantic tokens components use: backgrounds, surfaces, borders, text, accent, severity (success / warning / danger / info), shadows, radii, spacing, type scale, control heights, motion. Light is the default; dark overrides under `[data-theme='dark']`. The paper colours of the document preview are theme-independent. |
+| `base.css` | Reset, typography, app shell (top bar), page scaffolding, the branded backdrop, motion and reduced-motion rules. |
+| `components.css` | Buttons, inputs, fields, choice controls, tabs, badges, the severity system (banners, inline notes), tables, dialog, stepper, autosave pill, empty states, theme switch, work-mode badge. |
+| `screens.css` | Welcome, home, wizard steps, review, document, success, investigation view, distribution dialog, admin. |
+
+Rules: components use semantic tokens only (never hex values); severities
+share one vocabulary (`tone-error | tone-warning | tone-info | tone-success`)
+with a distinct icon each, so colour is never the only signal.
+
+**Themes.** Light, Dark and System (follows Windows). The preference is a
+per-user display setting in local storage (`ourfault.theme`), never part of
+investigation data. `public/theme-boot.js` applies it before the first paint.
+The window background, the startup screen and the welcome screen are the
+brand navy in every theme, so nothing flashes white. The welcome screen is
+always the dark brand scene. Tokens are attribute-scoped, so any subtree can
+force a theme. The document preview stays paper-white in dark mode, because
+it mirrors the PDF.
+
+**Backdrop.** `<Backdrop>` draws layered SVG waves, a faint orbit and two
+CSS radial glows, all coloured by theme tokens. It is fixed behind the
+content, static (no animation, canvas or raster image) and cheap to paint.
+Content surfaces stay solid for legibility.
+
+**Brand assets** live in `src/assets/brand/` (see its README): the
+horizontal logo and the emblem (transparent), the square app icon, and the
+Windows icons generated from it in `src-tauri/icons/`.
+`docs/design/welcome-reference.webp` is the reference the welcome screen
+follows; it is not shipped.
+
+**Motion.** Short transitions (120–260 ms): hover, press, step and tab
+change, advisory appearance, dialog, theme cross-fade. Nothing loops except
+busy spinners. `prefers-reduced-motion` disables animations and transitions.
+
+**Window sizes.** Designed for 1920×1080 maximised, verified at 1440×900 and
+1100 px wide (minimum window 1024×680). Grids collapse to one column on
+narrower windows. Tables stay tables.
+
 ## Local data and migration
 
 Local JSON files in the per-user data directory

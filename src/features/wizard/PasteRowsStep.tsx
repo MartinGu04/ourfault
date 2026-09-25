@@ -29,8 +29,13 @@ export function PasteRowsStep({ state, dispatch, onPasteText, parsing }: Props) 
   if (state.rows.length === 0) {
     return (
       <div className="paste-panel">
-        <div className="paste-icon">
-          <Icon name="clipboard" size={30} />
+        <div className="paste-art" aria-hidden="true">
+          <span className="paste-art-sheet">
+            <Icon name="table" size={22} />
+          </span>
+          <span className="paste-art-clip">
+            <Icon name="clipboard" size={30} />
+          </span>
         </div>
         <h2>הדבקת שורות מיומן המבצעים</h2>
         <ol className="paste-steps">
@@ -59,9 +64,14 @@ export function PasteRowsStep({ state, dispatch, onPasteText, parsing }: Props) 
   return (
     <div className="rows-step">
       <div className="review-bar">
-        <p className="review-count">{rowsLabel(state.rows.length)} לתחקיר</p>
+        <div className="review-count">
+          <Icon name="table" size={18} />
+          <span>
+            <strong>{rowsLabel(state.rows.length)}</strong> לתחקיר
+          </span>
+        </div>
         <PasteTarget label="הדבקת שורות נוספות (Ctrl+V)" parsing={parsing} compact />
-        <Button variant="subtle" icon="trash" disabled={parsing} onClick={() => dispatch({ type: 'rowsCleared' })}>
+        <Button variant="danger" icon="trash" disabled={parsing} onClick={() => dispatch({ type: 'rowsCleared' })}>
           ניקוי הכל
         </Button>
       </div>
@@ -177,6 +187,7 @@ function ReviewTableRow({ row, index, dispatch }: { row: ReviewRow; index: numbe
       <td>{row.to}</td>
       <td className="cell-text">{row.description}</td>
       <td className="col-actions">
+        <span className="row-actions">
         <button type="button" className="icon-button" aria-label={`עריכת שורה ${index}`} title="עריכה" onClick={() => setEditing(true)}>
           <Icon name="edit" size={16} />
         </button>
@@ -189,6 +200,7 @@ function ReviewTableRow({ row, index, dispatch }: { row: ReviewRow; index: numbe
         >
           <Icon name="trash" size={16} />
         </button>
+        </span>
       </td>
     </tr>
   );

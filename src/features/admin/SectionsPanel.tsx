@@ -168,8 +168,16 @@ function SectionEditor({ section, onSaved }: { section: SectionDefinition | null
 
         <div className="field-editor">
           <div className="field-editor-head">
-            <h3>שדות (לפי סדר התצוגה)</h3>
+            <h3>שדות</h3>
+            <p className="field-hint">לפי סדר התצוגה בתחקיר: השדה הראשון הוא העמודה הימנית.</p>
             {errors.fields && <p className="field-error">{errors.fields}</p>}
+          </div>
+          <div className="field-editor-columns" aria-hidden="true">
+            <span>#</span>
+            <span>כותרת</span>
+            <span>סוג</span>
+            <span>הגדרות</span>
+            <span>סדר והסרה</span>
           </div>
           <ol className="field-editor-list">
             {form.fields.map((field, index) => {
@@ -178,55 +186,38 @@ function SectionEditor({ section, onSaved }: { section: SectionDefinition | null
               return (
                 <li key={field.key} className={field.active ? 'field-editor-row' : 'field-editor-row is-inactive'}>
                   <span className="field-editor-index">{index + 1}</span>
-                  <div className="field-editor-main">
-                    <div className="field-editor-line">
-                      <input
-                        className="input"
-                        aria-label={`כותרת שדה ${index + 1}`}
-                        placeholder="כותרת השדה"
-                        value={field.label}
-                        maxLength={80}
-                        aria-invalid={Boolean(errors[`${prefix}.label`]) || undefined}
-                        onChange={(event) => set({ label: event.target.value })}
-                      />
-                      <select
-                        className="input field-kind"
-                        aria-label={`סוג שדה ${index + 1}`}
-                        value={field.kind}
-                        onChange={(event) => set({ kind: event.target.value as FieldKind })}
-                      >
-                        {KIND_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <label className="checkbox">
-                        <input type="checkbox" checked={field.required} onChange={(e) => set({ required: e.target.checked })} />
-                        חובה
-                      </label>
-                      <label className="checkbox">
-                        <input type="checkbox" checked={field.active} onChange={(e) => set({ active: e.target.checked })} />
-                        פעיל
-                      </label>
-                    </div>
-                    {errors[`${prefix}.label`] && <p className="field-error">{errors[`${prefix}.label`]}</p>}
-                    {errors[prefix] && <p className="field-error">{errors[prefix]}</p>}
-                    {hasOptions(field.kind) && (
-                      <>
-                        <textarea
-                          className="input textarea field-options"
-                          aria-label={`אפשרויות לשדה ${index + 1}`}
-                          placeholder="אפשרות אחת בכל שורה"
-                          rows={3}
-                          value={field.options}
-                          onChange={(event) => set({ options: event.target.value })}
-                        />
-                        {errors[`${prefix}.options`] && <p className="field-error">{errors[`${prefix}.options`]}</p>}
-                      </>
-                    )}
+                  <input
+                    className="input field-editor-label"
+                    aria-label={`כותרת שדה ${index + 1}`}
+                    placeholder="כותרת השדה"
+                    value={field.label}
+                    maxLength={80}
+                    aria-invalid={Boolean(errors[`${prefix}.label`]) || undefined}
+                    onChange={(event) => set({ label: event.target.value })}
+                  />
+                  <select
+                    className="input field-kind"
+                    aria-label={`סוג שדה ${index + 1}`}
+                    value={field.kind}
+                    onChange={(event) => set({ kind: event.target.value as FieldKind })}
+                  >
+                    {KIND_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="field-editor-flags">
+                    <label className="checkbox">
+                      <input type="checkbox" checked={field.required} onChange={(e) => set({ required: e.target.checked })} />
+                      חובה
+                    </label>
+                    <label className="checkbox">
+                      <input type="checkbox" checked={field.active} onChange={(e) => set({ active: e.target.checked })} />
+                      פעיל
+                    </label>
                   </div>
-                  <div className="order-buttons">
+                  <div className="order-buttons field-editor-actions">
                     <button
                       type="button"
                       className="icon-button"
@@ -245,6 +236,7 @@ function SectionEditor({ section, onSaved }: { section: SectionDefinition | null
                     >
                       <Icon name="down" size={16} />
                     </button>
+                    <span className="order-divider" aria-hidden="true" />
                     <button
                       type="button"
                       className="icon-button icon-button-danger"
@@ -255,6 +247,25 @@ function SectionEditor({ section, onSaved }: { section: SectionDefinition | null
                       <Icon name="trash" size={16} />
                     </button>
                   </div>
+                  {(errors[`${prefix}.label`] || errors[prefix] || hasOptions(field.kind)) && (
+                    <div className="field-editor-extra">
+                      {errors[`${prefix}.label`] && <p className="field-error">{errors[`${prefix}.label`]}</p>}
+                      {errors[prefix] && <p className="field-error">{errors[prefix]}</p>}
+                      {hasOptions(field.kind) && (
+                        <>
+                          <textarea
+                            className="input textarea field-options"
+                            aria-label={`אפשרויות לשדה ${index + 1}`}
+                            placeholder="אפשרות אחת בכל שורה"
+                            rows={3}
+                            value={field.options}
+                            onChange={(event) => set({ options: event.target.value })}
+                          />
+                          {errors[`${prefix}.options`] && <p className="field-error">{errors[`${prefix}.options`]}</p>}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}

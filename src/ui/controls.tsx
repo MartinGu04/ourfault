@@ -4,7 +4,8 @@ import { useId, type ButtonHTMLAttributes, type ReactNode } from 'react';
 
 import { Icon, type IconName } from './Icon';
 
-type ButtonVariant = 'primary' | 'secondary' | 'subtle';
+/** primary: the one main action · secondary: normal · subtle: low emphasis · danger: destructive, low emphasis. */
+type ButtonVariant = 'primary' | 'secondary' | 'subtle' | 'danger';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -64,7 +65,7 @@ export function Field({ label, hint, error, children }: FieldProps) {
       {children({ id, describedBy, invalid: Boolean(error) })}
       {error && (
         <p className="field-error" id={errorId}>
-          <Icon name="alert" size={14} />
+          <Icon name="error" size={14} />
           {error}
         </p>
       )}
@@ -87,20 +88,58 @@ export function StaticField({ label, children }: { label: string; children: Reac
   );
 }
 
-type BannerTone = 'info' | 'error' | 'success';
+export type Tone = 'error' | 'warning' | 'info' | 'success';
 
-export function Banner({ tone = 'info', children }: { tone?: BannerTone; children: ReactNode }) {
-  const icon: IconName = tone === 'error' ? 'alert' : tone === 'success' ? 'check' : 'info';
+/** Each severity has its own icon, so colour is never the only signal. */
+export const TONE_ICON: Record<Tone, IconName> = {
+  error: 'error',
+  warning: 'alert',
+  info: 'info',
+  success: 'check',
+};
+
+export function Banner({ tone = 'info', children }: { tone?: Tone; children: ReactNode }) {
+  const icon = TONE_ICON[tone];
   return (
-    <div className={`banner banner-${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
+    <div className={`banner tone-${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
       <Icon name={icon} />
       <div>{children}</div>
     </div>
   );
 }
 
-export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'accent' | 'success' | 'muted'; children: ReactNode }) {
+type BadgeTone = 'neutral' | 'accent' | 'success' | 'muted' | 'warning' | 'info';
+
+export function Badge({ tone = 'neutral', children }: { tone?: BadgeTone; children: ReactNode }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
+}
+
+/** A compact, intentional empty state: icon, one line, optional hint and action. */
+export function EmptyState({
+  icon,
+  title,
+  children,
+  action,
+  compact,
+}: {
+  icon: IconName;
+  title: string;
+  children?: ReactNode;
+  action?: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? 'empty-state empty-state-compact' : 'empty-state'}>
+      <span className="empty-state-icon">
+        <Icon name={icon} size={compact ? 18 : 22} />
+      </span>
+      <div className="empty-state-text">
+        <p className="empty-state-title">{title}</p>
+        {children && <p className="empty-state-hint">{children}</p>}
+      </div>
+      {action && <div className="empty-state-action">{action}</div>}
+    </div>
+  );
 }
 
 /** Left-to-right text (URLs, e-mail addresses, file names) inside RTL layout. */

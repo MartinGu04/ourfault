@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { advisoryMessage } from '../../api/errors';
 import type { Advisory } from '../../api/types';
+import { TONE_ICON } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 
 export function InlineAdvisory({ advisory, action }: { advisory: Advisory; action?: ReactNode }) {
@@ -24,10 +25,9 @@ export function InlineMessage({
   action?: ReactNode;
   children: ReactNode;
 }) {
-  const icon = tone === 'success' ? 'check' : tone === 'info' ? 'info' : 'alert';
   return (
-    <div className={`inline-note inline-note-${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
-      <Icon name={icon} size={15} />
+    <div className={`inline-note inline-note-${tone} tone-${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
+      <Icon name={TONE_ICON[tone]} size={16} />
       <span className="inline-note-text">{children}</span>
       {action && <span className="inline-note-action">{action}</span>}
     </div>
