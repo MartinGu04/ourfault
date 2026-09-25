@@ -1434,12 +1434,12 @@ kbd {
 
 .issue-group-warning .issue-group-title .icon,
 .issue-group-warning .issue-message {
-  color: #8a5a00;
+  color: var(--warning);
 }
 
 .issue-group-warning .issue-group-count {
-  background: #fff3d6;
-  color: #7a5300;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .issue-group-info .issue-group-title .icon,

@@ -1,12 +1,15 @@
-// Step 1: the activity the investigation belongs to.
+// Step 1: the activity the investigation belongs to. Findings from the
+// backend (missing or invalid values, warnings, information) are shown next
+// to the fields they are about.
 
 import type { Dispatch } from 'react';
 
 import { fieldMessage } from '../../api/errors';
 import type { ActivityInput, Workspace } from '../../api/types';
 import { ACTIVITY_STATUSES, ACTIVITY_TYPES } from '../../lib/labels';
-import { Chips, Field, Segmented, YES_NO } from '../../ui/controls';
-import { errorFor, type WizardAction, type WizardState } from './wizardState';
+import { Button, Chips, Field, Segmented, YES_NO } from '../../ui/controls';
+import { InlineAdvisory } from './InlineAdvisory';
+import { notesFor, visibleErrors, type WizardAction, type WizardState } from './wizardState';
 
 interface Props {
   state: WizardState;
@@ -17,10 +20,15 @@ interface Props {
 export function ActivityStep({ state, dispatch, workspace }: Props) {
   const activity = state.activity;
   const change = (patch: Partial<ActivityInput>) => dispatch({ type: 'activityChanged', patch });
+  const touched = (field: string) => () => dispatch({ type: 'fieldTouched', field });
+  const errors = visibleErrors(state);
   const message = (field: string) => {
-    const error = errorFor(state, field);
+    const error = errors.find((e) => e.field === field);
     return error ? fieldMessage(error) : undefined;
   };
+  const nightNotes = notesFor(state, ['nightActivity']);
+  const plannedNotes = notesFor(state, ['plannedStart', 'plannedEnd']);
+  const actualNotes = notesFor(state, ['actualStart', 'actualEnd']);
 
   // Active systems can be chosen; inactive ones stay visible only if a
   // reopened draft already references them.
@@ -44,6 +52,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           onChange={(event) => change({ [key]: event.target.value })}
+          onBlur={touched(key)}
         />
       )}
     </Field>
@@ -67,6 +76,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
               aria-describedby={describedBy}
               aria-invalid={invalid || undefined}
               onChange={(event) => change({ name: event.target.value })}
+              onBlur={touched('activityName')}
             />
           )}
         </Field>
@@ -109,6 +119,7 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
                 aria-describedby={describedBy}
                 aria-invalid={invalid || undefined}
                 onChange={(event) => change({ activityTypeOther: event.target.value })}
+                onBlur={touched('activityTypeOther')}
               />
             )}
           </Field>
@@ -157,6 +168,17 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
             )}
           </Field>
         </div>
+        {nightNotes.map((advisory) => (
+          <InlineAdvisory
+            key={advisory.code}
+            advisory={advisory}
+            action={
+              advisory.code === 'night_overlap_not_marked' && (
+                <Button onClick={() => change({ nightActivity: true })}>סמן כמשימת לילה</Button>
+              )
+            }
+          />
+        ))}
       </section>
 
       <div className="time-groups">
@@ -167,6 +189,9 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
           {dateTime('plannedStart', 'התחלה')}
           {dateTime('plannedEnd', 'סיום')}
           <p className="field-hint">חובה לפני יצירת התחקיר. הטיוטה נשמרת גם כשהשדות ריקים.</p>
+          {plannedNotes.map((advisory) => (
+            <InlineAdvisory key={advisory.code} advisory={advisory} />
+          ))}
         </section>
         <section className="form-card" aria-labelledby="times-actual">
           <h2 id="times-actual" className="form-card-title">
@@ -179,6 +204,9 @@ export function ActivityStep({ state, dispatch, workspace }: Props) {
               ? 'הפעילות הסתיימה: יש למלא התחלה וסיום בפועל לפני יצירת התחקיר.'
               : 'כל עוד הפעילות פעילה, ניתן להשאיר את זמני הביצוע ריקים או למלא רק התחלה.'}
           </p>
+          {actualNotes.map((advisory) => (
+            <InlineAdvisory key={advisory.code} advisory={advisory} />
+          ))}
         </section>
       </div>
     </div>

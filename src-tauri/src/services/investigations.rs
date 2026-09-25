@@ -3,6 +3,7 @@ use serde::Serialize;
 use super::Now;
 use crate::adapters::{AdapterError, ConfigurationRepository, DraftRepository, InvestigationPublisher, PublishRequest};
 use crate::domain::advisories::{assess_activity, Advisory};
+use crate::domain::configuration::Configuration;
 use crate::domain::draft::{Conversion, Draft, DraftContent};
 use crate::domain::investigation::{Investigation, InvestigationSummary, PublishedInvestigation};
 use crate::domain::investigation_number::InvestigationNumber;
@@ -48,6 +49,19 @@ pub struct InvestigationDetails {
     pub document: DocumentView,
 }
 
+/// Errors first (from validation), then warnings and information. The number
+/// only lets validation build the investigation; it does not affect findings.
+fn findings(content: &DraftContent, configuration: &Configuration, number: InvestigationNumber) -> Vec<Advisory> {
+    let errors = Investigation::build(number, content, configuration).err().unwrap_or_default();
+    let mut advisories: Vec<Advisory> = errors.into_iter().map(Advisory::from).collect();
+    advisories.extend(assess_activity(&content.activity, &configuration.night_window));
+    advisories
+}
+
+fn placeholder_number(now: &Now) -> Result<InvestigationNumber, AppError> {
+    InvestigationNumber::new(1, now.year()?).map_err(|e| AppError::internal("number", &e))
+}
+
 pub struct InvestigationService<'a> {
     publisher: &'a dyn InvestigationPublisher,
     configuration: &'a dyn ConfigurationRepository,
@@ -79,12 +93,23 @@ impl<'a> InvestigationService<'a> {
             Err(AppError::Unavailable) => None,
             Err(other) => return Err(other),
         };
-        let candidate = expected_number
-            .unwrap_or(InvestigationNumber::new(1, now.year()?).map_err(|e| AppError::internal("number", &e))?);
-        let errors = Investigation::build(candidate, content, &configuration).err().unwrap_or_default();
-        let mut advisories: Vec<Advisory> = errors.into_iter().map(Advisory::from).collect();
-        advisories.extend(assess_activity(&content.activity, &configuration.night_window));
-        Ok(Review { advisories, document: DocumentView::from_draft(content, &configuration), expected_number })
+        let candidate = match expected_number {
+            Some(number) => number,
+            None => placeholder_number(now)?,
+        };
+        Ok(Review {
+            advisories: findings(content, &configuration, candidate),
+            document: DocumentView::from_draft(content, &configuration),
+            expected_number,
+        })
+    }
+
+    /// The same findings as [`Self::review`], for feedback while the operator
+    /// edits. Cheap enough to run on every change: it reads the local
+    /// configuration only, and never asks the publisher or renders anything.
+    pub fn assess(&self, content: &DraftContent, now: &Now) -> Result<Vec<Advisory>, AppError> {
+        let configuration = self.configuration.load()?.value;
+        Ok(findings(content, &configuration, placeholder_number(now)?))
     }
 
     /// Completes a draft: validates it, allocates the final number and
@@ -311,6 +336,27 @@ pub(crate) mod tests {
         assert!(review.advisories.iter().any(|a| a.severity == Severity::Warning));
         let draft = fixture.base.service().create(content, DraftStep::Review, &now(), "op").unwrap();
         assert!(matches!(fixture.service().complete(&draft.id, 1, &now(), "op"), Err(AppError::Validation { .. })));
+    }
+
+    #[test]
+    fn assessment_while_editing_matches_the_review() {
+        let fixture = Fixture::new();
+        let mut content = content();
+        content.activity.name = String::new();
+        content.activity.planned_end = "2026-09-20T07:00".into();
+        content.activity.actual_start = "2026-09-20T21:00".into();
+        content.activity.actual_end = "2026-09-20T22:00".into();
+        content.activity.night_activity = Some(false);
+        let review = fixture.service().review(&content, &now()).unwrap();
+        let assessed = fixture.service().assess(&content, &now()).unwrap();
+        assert_eq!(assessed, review.advisories);
+        let severities: Vec<Severity> = assessed.iter().map(|a| a.severity).collect();
+        assert!(severities.contains(&Severity::Error) && severities.contains(&Severity::Warning));
+        assert!(severities.contains(&Severity::Info));
+
+        // Never asks the publisher, so it also works while it is unreachable.
+        let offline = SharedFolderPublisher::new(temp_dir("share").join("not-mounted"));
+        assert_eq!(fixture.with_publisher(&offline).assess(&content, &now()).unwrap(), assessed);
     }
 
     #[test]

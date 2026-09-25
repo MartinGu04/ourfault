@@ -48,7 +48,9 @@ activity type) and one saved draft (*בלט רומני*).
    Use **שמירה ויציאה** at any time and reopen the draft later.
 3. **פרטי הפעילות**: name, type (choosing *אחר* asks for a description),
    one or more systems, activity status, planned and actual times, and the
-   yes/no questions.
+   yes/no questions. Findings appear next to their fields as you go (e.g.
+   planned night hours while *משימת לילה* is "לא", with **סמן כמשימת לילה**);
+   missing values are pointed out once you leave a field or the step.
 4. **פרטים טכניים**: the configured sections. Add and remove rows in the
    table sections; station fields list the configured stations.
 5. **השתלשלות אירועים**: open [`demo/operations-log-demo.xlsx`](demo/operations-log-demo.xlsx)

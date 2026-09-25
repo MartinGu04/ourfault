@@ -11,7 +11,8 @@ import { rowsLabel } from '../../lib/format';
 import { Banner, Button, Ltr } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { readClipboardText, type ClipboardRead } from './clipboard';
-import { errorFor, type ReviewRow, type WizardAction, type WizardState } from './wizardState';
+import { InlineMessage } from './InlineAdvisory';
+import { errorFor, pasteFeedback, type ReviewRow, type WizardAction, type WizardState } from './wizardState';
 
 interface Props {
   state: WizardState;
@@ -67,11 +68,9 @@ export function PasteRowsStep({ state, dispatch, onPasteText, parsing }: Props) 
 
       {rowsError && <Banner tone="error">{fieldMessage(rowsError)}</Banner>}
       {state.lastPaste && (
-        <Banner tone="success">
-          {state.lastPaste.count === 1 ? 'נוספה שורה אחת' : `נוספו ${state.lastPaste.count} שורות`}
-          {state.lastPaste.headerSkipped && ' (שורת הכותרות הושמטה)'}. בדקו את השורות, וערכו או הסירו שורות לפי
-          הצורך.
-        </Banner>
+        <InlineMessage tone="success">
+          {pasteFeedback(state.lastPaste, state.rows.length)} בדקו את השורות, וערכו או הסירו שורות לפי הצורך.
+        </InlineMessage>
       )}
 
       <div className="table-wrap">

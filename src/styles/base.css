@@ -27,6 +27,10 @@
   --success-soft: #e9f6ef;
   --danger: #c0281b;
   --danger-soft: #fdf0ef;
+  --danger-border: #f5cdc9;
+  --warning: #8a5a00;
+  --warning-soft: #fff6e0;
+  --warning-border: #f1d894;
   --mark: #f2c200;
 
   --radius-s: 4px;

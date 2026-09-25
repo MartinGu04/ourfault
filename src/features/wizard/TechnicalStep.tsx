@@ -6,10 +6,12 @@
 import type { Dispatch } from 'react';
 
 import { fieldMessage } from '../../api/errors';
-import type { FieldDefinition, FieldValue, SectionDefinition, SectionRecord, Workspace } from '../../api/types';
+import type { FieldDefinition, FieldError, FieldValue, SectionDefinition, SectionRecord, Workspace } from '../../api/types';
 import { Button, Chips, Field, Segmented, YES_NO } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
-import { errorFor, type WizardAction, type WizardState } from './wizardState';
+import { visibleErrors, type WizardAction, type WizardState } from './wizardState';
+
+type ErrorOf = (field: string) => FieldError | undefined;
 
 interface Props {
   state: WizardState;
@@ -21,18 +23,34 @@ export function TechnicalStep({ state, dispatch, workspace }: Props) {
   if (workspace.sections.length === 0) {
     return <p className="empty-text">לא הוגדרו סעיפים טכניים. ניתן להמשיך לשלב הבא.</p>;
   }
+  // Missing values show once the operator got to them; invalid ones at once.
+  const errors = visibleErrors(state);
+  const errorOf: ErrorOf = (field) => errors.find((error) => error.field === field);
   return (
     <div className="technical">
       {workspace.sections.map((section) => (
-        <SectionCard key={section.id} section={section} state={state} dispatch={dispatch} workspace={workspace} />
+        <SectionCard
+          key={section.id}
+          section={section}
+          state={state}
+          dispatch={dispatch}
+          workspace={workspace}
+          errorOf={errorOf}
+        />
       ))}
     </div>
   );
 }
 
-function SectionCard({ section, state, dispatch, workspace }: { section: SectionDefinition } & Props) {
+function SectionCard({
+  section,
+  state,
+  dispatch,
+  workspace,
+  errorOf,
+}: { section: SectionDefinition; errorOf: ErrorOf } & Props) {
   const records = state.sections[section.id] ?? [];
-  const sectionError = errorFor(state, `sections.${section.id}`);
+  const sectionError = errorOf(`sections.${section.id}`);
   const change = (index: number, fieldId: string, value: FieldValue | null) =>
     dispatch({ type: 'sectionValueChanged', sectionId: section.id, index, fieldId, value });
   const control = (field: FieldDefinition, record: SectionRecord, index: number, label: string) => (
@@ -40,10 +58,11 @@ function SectionCard({ section, state, dispatch, workspace }: { section: Section
       field={field}
       value={record[field.id]}
       label={label}
-      error={errorFor(state, `sections.${section.id}.${index}.${field.id}`)}
+      error={errorOf(`sections.${section.id}.${index}.${field.id}`)}
       state={state}
       workspace={workspace}
       onChange={(value) => change(index, field.id, value)}
+      onBlur={() => dispatch({ type: 'fieldTouched', field: `sections.${section.id}.${index}.${field.id}` })}
     />
   );
 
@@ -67,7 +86,7 @@ function SectionCard({ section, state, dispatch, workspace }: { section: Section
             <Field
               key={field.id}
               label={field.required ? `${field.label} *` : field.label}
-              error={messageFor(errorFor(state, `sections.${section.id}.0.${field.id}`))}
+              error={messageFor(errorOf(`sections.${section.id}.0.${field.id}`))}
             >
               {() => control(field, records[0] ?? {}, 0, field.label)}
             </Field>
@@ -96,12 +115,12 @@ function SectionCard({ section, state, dispatch, workspace }: { section: Section
             </thead>
             <tbody>
               {records.map((record, index) => {
-                const rowError = errorFor(state, `sections.${section.id}.${index}`);
+                const rowError = errorOf(`sections.${section.id}.${index}`);
                 return (
                   <tr key={index} className={rowError ? 'row-invalid' : undefined}>
                     <td className="col-index">{index + 1}</td>
                     {section.fields.map((field) => {
-                      const error = errorFor(state, `sections.${section.id}.${index}.${field.id}`);
+                      const error = errorOf(`sections.${section.id}.${index}.${field.id}`);
                       return (
                         <td key={field.id}>
                           {control(field, record, index, `${field.label}, שורה ${index + 1}`)}
@@ -126,7 +145,7 @@ function SectionCard({ section, state, dispatch, workspace }: { section: Section
               })}
             </tbody>
           </table>
-          {records.some((_, index) => errorFor(state, `sections.${section.id}.${index}`)) && (
+          {records.some((_, index) => errorOf(`sections.${section.id}.${index}`)) && (
             <p className="field-error section-row-error">יש שורות ריקות. מלאו אותן או הסירו אותן.</p>
           )}
         </div>
@@ -135,20 +154,21 @@ function SectionCard({ section, state, dispatch, workspace }: { section: Section
   );
 }
 
-const messageFor = (error: ReturnType<typeof errorFor>) => (error ? fieldMessage(error) : undefined);
+const messageFor = (error: FieldError | undefined) => (error ? fieldMessage(error) : undefined);
 
 interface ControlProps {
   field: FieldDefinition;
   value: FieldValue | undefined;
   label: string;
-  error: ReturnType<typeof errorFor>;
+  error: FieldError | undefined;
   state: WizardState;
   workspace: Workspace;
   onChange: (value: FieldValue | null) => void;
+  onBlur: () => void;
 }
 
 /** One input for a configured field, chosen by its type. */
-function FieldControl({ field, value, label, error, state, workspace, onChange }: ControlProps) {
+function FieldControl({ field, value, label, error, state, workspace, onChange, onBlur }: ControlProps) {
   const invalid = Boolean(error) || undefined;
   const text = typeof value === 'string' ? value : '';
   const setText = (next: string) => onChange(next === '' ? null : next);
@@ -156,7 +176,15 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
   switch (field.kind) {
     case 'text':
       return (
-        <input className="input" aria-label={label} aria-invalid={invalid} value={text} maxLength={4000} onChange={(e) => setText(e.target.value)} />
+        <input
+          className="input"
+          aria-label={label}
+          aria-invalid={invalid}
+          value={text}
+          maxLength={4000}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={onBlur}
+        />
       );
     case 'number':
       return (
@@ -169,6 +197,7 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
           value={text}
           maxLength={24}
           onChange={(e) => setText(e.target.value)}
+          onBlur={onBlur}
         />
       );
     case 'boolean':
@@ -183,7 +212,7 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
       );
     case 'singleSelect':
       return (
-        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)}>
+        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)} onBlur={onBlur}>
           <option value="">בחרו…</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>
@@ -205,7 +234,7 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
     case 'station': {
       const stations = workspace.stations.filter((station) => station.active || station.id === text);
       return (
-        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)}>
+        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)} onBlur={onBlur}>
           <option value="">בחרו תחנה…</option>
           {stations.map((station) => (
             <option key={station.id} value={station.id} disabled={!station.active}>
@@ -221,7 +250,7 @@ function FieldControl({ field, value, label, error, state, workspace, onChange }
         .map((id) => workspace.systems.find((system) => system.id === id))
         .filter((system) => system !== undefined);
       return (
-        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)}>
+        <select className="input" aria-label={label} aria-invalid={invalid} value={text} onChange={(e) => setText(e.target.value)} onBlur={onBlur}>
           <option value="">{involved.length === 0 ? 'בחרו קודם מערכות בשלב 1' : 'בחרו מערכת…'}</option>
           {involved.map((system) => (
             <option key={system.id} value={system.id}>

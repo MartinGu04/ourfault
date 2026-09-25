@@ -282,7 +282,7 @@ select.input {
 }
 
 .banner-error {
-  border-color: #f5cdc9;
+  border-color: var(--danger-border);
   background: var(--danger-soft);
 }
 
@@ -674,6 +674,58 @@ select.input {
   margin-block-start: 4px;
   color: var(--danger);
   font-size: 12px;
+}
+
+/* ---- Inline findings (next to the fields they are about) ----
+   Error: red · Warning: amber · Information: blue · Success: green. */
+
+.inline-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  max-inline-size: var(--text-max);
+  margin-block-start: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent-soft-strong);
+  border-inline-start-width: 3px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.inline-note > .icon {
+  flex: none;
+}
+
+.inline-note-text {
+  flex: 1 1 24ch;
+}
+
+.inline-note-action .btn {
+  min-block-size: 30px;
+  padding-block: 3px;
+  font-size: 13px;
+}
+
+.inline-note-warning {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.inline-note-error {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.inline-note-success {
+  border-color: #c3e6d1;
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 /* ---- Autosave indicator ---- */

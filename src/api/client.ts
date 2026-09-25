@@ -6,6 +6,7 @@ import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 import { ApiError, toAppError } from './errors';
 import type {
   AdminConfiguration,
+  Advisory,
   Completion,
   DistributionMessage,
   Draft,
@@ -55,6 +56,7 @@ export const api = {
 
   /** Parses text the operator pasted (rows copied from Excel). */
   parsePastedRows: (text: string) => call<PastedRows>('parse_pasted_rows', { text }),
+  assessDraft: (content: DraftContent) => call<Advisory[]>('assess_draft', { content }),
   reviewDraft: (content: DraftContent) => call<Review>('review_draft', { content }),
   /** Idempotent: a draft that was already published returns that investigation. */
   completeDraft: (id: string, revision: number) => call<Completion>('complete_draft', { id, revision }),

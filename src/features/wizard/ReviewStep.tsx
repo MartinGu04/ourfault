@@ -11,7 +11,7 @@ import { describeField } from '../../lib/labels';
 import { Banner, Button, Field, Ltr, Spinner } from '../../ui/controls';
 import { Icon } from '../../ui/Icon';
 import { DocumentViewer } from '../investigation/DocumentViewer';
-import { errorFor, type WizardAction, type WizardState } from './wizardState';
+import { blockingIssues, errorFor, type WizardAction, type WizardState } from './wizardState';
 
 interface Props {
   state: WizardState;
@@ -38,10 +38,7 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
           setReview(result);
           setError(null);
           onReview(result);
-          const issues = result.advisories
-            .filter((advisory) => advisory.severity === 'error')
-            .map(({ field, code }) => ({ field, code }));
-          dispatch({ type: 'reviewed', issues, expectedNumber: result.expectedNumber });
+          dispatch({ type: 'reviewed', issues: blockingIssues(result.advisories), expectedNumber: result.expectedNumber });
         },
         (caught: unknown) => {
           if (current !== generation.current) return;
@@ -55,11 +52,6 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
   }, [contentJson]);
 
   const urlError = errorFor(state, 'preliminaryCheckUrl');
-  const { missing, invalid } = splitIssues(state.fieldErrors);
-  const ready = state.fieldErrors.length === 0;
-  const warnings = review?.advisories.filter((advisory) => advisory.severity === 'warning') ?? [];
-  const notes = review?.advisories.filter((advisory) => advisory.severity === 'info') ?? [];
-  const markNight = () => dispatch({ type: 'activityChanged', patch: { nightActivity: true } });
 
   return (
     <div className="review">
@@ -94,46 +86,67 @@ export function ReviewStep({ state, content, dispatch, workspace, onGoTo, onRevi
 
       {review && (
         <>
-          <div className="review-summary">
-            <div className={ready ? 'review-status review-status-ok' : 'review-status'}>
-              <Icon name={ready ? 'check' : 'alert'} size={20} />
-              <div>
-                <p className="review-status-title">{statusTitle(missing.length, invalid.length)}</p>
-                <p className="review-status-number">
-                  {review.expectedNumber ? (
-                    <>
-                      מספר צפוי: <Ltr>{review.expectedNumber}</Ltr> · המספר הסופי יוקצה ברגע היצירה
-                    </>
-                  ) : (
-                    'יעד הפרסום אינו זמין כרגע. המספר יוקצה ברגע היצירה.'
-                  )}
-                </p>
-              </div>
-            </div>
-            <IssueGroup title="ערכי חובה חסרים" tone="error" issues={missing} workspace={workspace} onGoTo={onGoTo} />
-            <IssueGroup title="ערכים לא תקינים" tone="error" issues={invalid} workspace={workspace} onGoTo={onGoTo} />
-            <IssueGroup
-              title="אזהרות (אינן חוסמות יצירה)"
-              tone="warning"
-              issues={warnings}
-              workspace={workspace}
-              onGoTo={onGoTo}
-              action={(issue) =>
-                issue.code === 'night_overlap_not_marked' ? (
-                  <Button size="normal" onClick={markNight}>
-                    סמן כמשימת לילה
-                  </Button>
-                ) : null
-              }
-            />
-            <IssueGroup title="לידיעה" tone="info" issues={notes} workspace={workspace} onGoTo={onGoTo} />
-          </div>
+          <ReviewSummary review={review} state={state} dispatch={dispatch} workspace={workspace} onGoTo={onGoTo} />
 
           <div className="preview-frame">
             <DocumentViewer document={review.document} />
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+interface SummaryProps {
+  review: Review;
+  state: WizardState;
+  dispatch: Dispatch<WizardAction>;
+  workspace: Workspace;
+  onGoTo: (step: DraftStep) => void;
+}
+
+/** The consolidated list: everything that blocks creation, then warnings and information. */
+export function ReviewSummary({ review, state, dispatch, workspace, onGoTo }: SummaryProps) {
+  const { missing, invalid } = splitIssues(state.fieldErrors);
+  const ready = state.fieldErrors.length === 0;
+  const warnings = review.advisories.filter((advisory) => advisory.severity === 'warning');
+  const notes = review.advisories.filter((advisory) => advisory.severity === 'info');
+  const markNight = () => dispatch({ type: 'activityChanged', patch: { nightActivity: true } });
+
+  return (
+    <div className="review-summary">
+      <div className={ready ? 'review-status review-status-ok' : 'review-status'}>
+        <Icon name={ready ? 'check' : 'alert'} size={20} />
+        <div>
+          <p className="review-status-title">{statusTitle(missing.length, invalid.length)}</p>
+          <p className="review-status-number">
+            {review.expectedNumber ? (
+              <>
+                מספר צפוי: <Ltr>{review.expectedNumber}</Ltr> · המספר הסופי יוקצה ברגע היצירה
+              </>
+            ) : (
+              'יעד הפרסום אינו זמין כרגע. המספר יוקצה ברגע היצירה.'
+            )}
+          </p>
+        </div>
+      </div>
+      <IssueGroup title="ערכי חובה חסרים" tone="error" issues={missing} workspace={workspace} onGoTo={onGoTo} />
+      <IssueGroup title="ערכים לא תקינים" tone="error" issues={invalid} workspace={workspace} onGoTo={onGoTo} />
+      <IssueGroup
+        title="אזהרות (אינן חוסמות יצירה)"
+        tone="warning"
+        issues={warnings}
+        workspace={workspace}
+        onGoTo={onGoTo}
+        action={(issue) =>
+          issue.code === 'night_overlap_not_marked' ? (
+            <Button size="normal" onClick={markNight}>
+              סמן כמשימת לילה
+            </Button>
+          ) : null
+        }
+      />
+      <IssueGroup title="לידיעה" tone="info" issues={notes} workspace={workspace} onGoTo={onGoTo} />
     </div>
   );
 }

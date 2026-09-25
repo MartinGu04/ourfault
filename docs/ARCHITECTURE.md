@@ -135,6 +135,16 @@ the UI:
   overlap night hours without being a "night activity"; the warning only
   asks the operator to check. The review offers a one-click
   *סמן כמשימת לילה* next to the warning.
+- **While editing**, the same findings are shown next to their fields.
+  `assess_draft` runs the review's rules (`InvestigationService::assess`)
+  without the number lookup, the publisher or the document, so the wizard
+  calls it shortly after each change (200 ms debounce, latest answer wins).
+  React applies no rules. It decides only *when* to show a finding:
+  - warnings, information and invalid values show at once;
+  - a missing value shows only after the operator changed or left that field
+    or moved on from its step, so a new draft does not open covered in red.
+
+  The review step keeps the complete, consolidated list.
 
 ### Lifecycle
 
@@ -368,7 +378,7 @@ data is seeded. Delete them, or the whole data directory, at will.
 
 | Concern | Measure |
 | --- | --- |
-| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 29 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
+| Webview privileges | One capability (`capabilities/main-window.json`) granting only the 30 OurFault commands (generated in `build.rs`). No core, fs, dialog, clipboard, shell, http or opener permissions. `withGlobalTauri: false`. |
 | Work modes | Admin operations require an `AdminGrant` created only by `AppState::admin()` in admin mode; the access policy can withhold admin mode entirely. |
 | Input | Pasted text is bounded and cleaned (see *Clipboard intake*). Draft content has size/row limits on every save (8 MiB). All content is re-validated in Rust on review and completion. Admin configuration is validated in the domain. |
 | File system | The webview never supplies paths. Draft ids are restricted to a safe alphabet; export and publication file names are sanitised (no separators, reserved characters or device names); exports never overwrite. |

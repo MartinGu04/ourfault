@@ -57,6 +57,7 @@ pub fn run() {
             commands::save_draft,
             commands::delete_draft,
             commands::parse_pasted_rows,
+            commands::assess_draft,
             commands::review_draft,
             commands::complete_draft,
             commands::list_recent_investigations,

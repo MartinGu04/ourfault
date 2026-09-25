@@ -16,6 +16,7 @@
     "allow-save-draft",
     "allow-delete-draft",
     "allow-parse-pasted-rows",
+    "allow-assess-draft",
     "allow-review-draft",
     "allow-complete-draft",
     "allow-list-recent-investigations",

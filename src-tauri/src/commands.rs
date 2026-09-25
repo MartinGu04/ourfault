@@ -8,6 +8,7 @@
 use tauri::State;
 
 use crate::adapters::ExportedFile;
+use crate::domain::advisories::Advisory;
 use crate::domain::configuration::PublicationSettings;
 use crate::domain::draft::{Draft, DraftContent, DraftStep, DraftSummary};
 use crate::domain::investigation::InvestigationSummary;
@@ -129,6 +130,14 @@ pub async fn delete_draft(state: State<'_, AppState>, id: String, revision: u64)
 #[tauri::command]
 pub async fn parse_pasted_rows(text: String) -> CommandResult<PastedRows> {
     Ok(log_rows::parse_pasted_rows(&text)?)
+}
+
+/// Errors, warnings and information about the content being edited, so each
+/// step can show them next to their fields. Same rules as `review_draft`,
+/// without the number lookup or the document.
+#[tauri::command]
+pub async fn assess_draft(state: State<'_, AppState>, content: DraftContent) -> CommandResult<Vec<Advisory>> {
+    investigations(&state)?.assess(&content, &Now::local())
 }
 
 #[tauri::command]

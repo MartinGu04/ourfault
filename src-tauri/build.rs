@@ -13,6 +13,7 @@ fn main() {
         "save_draft",
         "delete_draft",
         "parse_pasted_rows",
+        "assess_draft",
         "review_draft",
         "complete_draft",
         "list_recent_investigations",

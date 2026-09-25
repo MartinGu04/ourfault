@@ -23,7 +23,7 @@ import { ReviewStep } from './ReviewStep';
 import { Stepper } from './Stepper';
 import { SuccessStep } from './SuccessStep';
 import { TechnicalStep } from './TechnicalStep';
-import { stateFromDraft, toContent, wizardReducer } from './wizardState';
+import { stateFromDraft, toContent, visibleErrors, wizardReducer } from './wizardState';
 
 interface Props {
   /** null starts a new investigation. */
@@ -120,6 +120,25 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
     saverRef.current?.update(snapshot);
   }, [content, state.step]);
 
+  // Findings for the content being edited, from the same backend rules as
+  // the review (local and cheap: no number lookup, no rendering, no save).
+  // Only the latest answer counts.
+  const assessRun = useRef(0);
+  useEffect(() => {
+    if (state.step === 'done') return;
+    const current = ++assessRun.current;
+    const timer = window.setTimeout(() => {
+      api.assessDraft(content).then(
+        (advisories) => {
+          if (current === assessRun.current) dispatch({ type: 'assessed', advisories });
+        },
+        // Inline findings are a convenience; the review step reports failures.
+        () => undefined,
+      );
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [content]);
+
   async function saveNow(): Promise<boolean> {
     return (await saverRef.current?.flush()) ?? true;
   }
@@ -189,14 +208,15 @@ function Wizard({ initialDraft, workspace, navigation }: { initialDraft: Draft |
     });
 
   const stepIndex = STEPS.findIndex((step) => step.key === state.step);
+  const shownErrors = useMemo(() => visibleErrors(state), [state.fieldErrors, state.assessment, state.touched, state.attempted]);
   const issuesPerStep = useMemo(() => {
     const counts: Partial<Record<DraftStep, number>> = {};
-    for (const issue of state.fieldErrors) {
+    for (const issue of shownErrors) {
       const { step } = describeField(issue.field, workspace.sections);
       counts[step] = (counts[step] ?? 0) + 1;
     }
     return counts;
-  }, [state.fieldErrors, workspace.sections]);
+  }, [shownErrors, workspace.sections]);
 
   if (state.step === 'done' && state.created) {
     return (

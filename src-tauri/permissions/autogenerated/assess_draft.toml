@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-assess-draft"
+description = "Enables the assess_draft command without any pre-configured scope."
+commands.allow = ["assess_draft"]
+
+[[permission]]
+identifier = "deny-assess-draft"
+description = "Denies the assess_draft command without any pre-configured scope."
+commands.deny = ["assess_draft"]
